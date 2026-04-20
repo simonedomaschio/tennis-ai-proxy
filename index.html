@@ -375,44 +375,41 @@ async function searchStats(){
   const status=document.getElementById('search-status');
   btn.disabled=true;btn.innerHTML='<span class="spin"></span>Ricerca in corso...';
   status.style.display='block';
-  status.innerHTML='<span class="spin"></span> Ricerca statistiche per <strong>'+p1name+'</strong> e <strong>'+p2name+'</strong> su '+surfLabel+'...';
+  status.innerHTML='<span class="spin"></span> Cerco su ATP Tour, Tennis Abstract e Ultimate Tennis Statistics le statistiche di <strong>'+p1name+'</strong> e <strong>'+p2name+'</strong> su '+surfLabel+'... (15-20 sec)';
 
   // URL del proxy — sostituisci con il tuo URL Render dopo il deploy
   // Legge l'URL del proxy dal localStorage (configurabile una volta sola)
   const savedProxy = localStorage.getItem('tennis_proxy_url');
   const PROXY_URL = savedProxy || 'https://tennis-ai-proxy.onrender.com/api/claude';
 
-  const prompt=`Sei un esperto di tennis ATP. Devo analizzare il match ${p1name} vs ${p2name} su ${surfLabel}.
+  const surfaceQuery = surfaceVal === 'clay' ? 'clay' : surfaceVal === 'hard' ? 'hard' : surfaceVal === 'grass' ? 'grass' : 'hard';
 
-Cerca le statistiche recenti (stagione 2025 o ultime 52 settimane) di ENTRAMBI i giocatori su ${surfLabel}.
+  const prompt=`Sei un esperto di statistiche tennis ATP. Devo trovare le statistiche di servizio e risposta di ${p1name} e ${p2name} su ${surfLabel} nel 2025.
 
-Rispondimi SOLO con un oggetto JSON valido, nessun testo extra, nessun markdown:
+Cerca su questi siti in ordine di priorità:
+1. atptour.com/en/players - sezione Stats, filtra per ${surfaceQuery} e 2025
+2. tennisabstract.com - pagina del giocatore, tab superficie ${surfaceQuery}
+3. ultimatetennisstatistics.com - statistiche per superficie
+
+Per OGNI giocatore trova ESATTAMENTE questi valori su ${surfLabel}:
+- Service Games Won % (percentuale game di servizio vinti)
+- 1st Serve % (percentuale prime di servizio in campo)
+- 1st Serve Points Won % (punti vinti sulla prima di servizio)
+- 2nd Serve Points Won % (punti vinti sulla seconda di servizio)
+- Return Games Won % (percentuale game di risposta vinti)
+- Aces per match (media ace a partita)
+- Double Faults per match (media doppi falli a partita)
+- Win First Set % (percentuale set 1 vinti - cerca "won first set" o simile)
+
+Rispondimi SOLO con JSON valido, zero testo extra:
 {
-  "p1": {
-    "name": "${p1name}",
-    "hold": <service games won % 0-100>,
-    "first": <first serve in % 0-100>,
-    "w1st": <points won on 1st serve % 0-100>,
-    "w2nd": <points won on 2nd serve % 0-100>,
-    "wfs": <win first set % 0-100>,
-    "ret": <return games won % 0-100>,
-    "ace": <ace per match>,
-    "df": <double faults per match>
-  },
-  "p2": {
-    "name": "${p2name}",
-    "hold": <service games won % 0-100>,
-    "first": <first serve in % 0-100>,
-    "w1st": <points won on 1st serve % 0-100>,
-    "w2nd": <points won on 2nd serve % 0-100>,
-    "wfs": <win first set % 0-100>,
-    "ret": <return games won % 0-100>,
-    "ace": <ace per match>,
-    "df": <double faults per match>
-  },
-  "source": "fonte dati",
-  "period": "periodo di riferimento"
-}`;
+  "p1": {"name":"${p1name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},
+  "p2": {"name":"${p2name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},
+  "source":"siti consultati",
+  "period":"anno/periodo dati"
+}
+
+IMPORTANTE: usa SOLO dati reali trovati online, NON inventare valori. Se non trovi un dato specifico per ${surfLabel}, usa i dati generali del giocatore. Se proprio non trovi nulla, metti null per quel campo.`;
 
   try{
     const resp=await fetch(PROXY_URL,{
@@ -420,8 +417,8 @@ Rispondimi SOLO con un oggetto JSON valido, nessun testo extra, nessun markdown:
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
-        max_tokens:800,
-        tools:[{type:'web_search_20250305',name:'web_search'}],
+        max_tokens:2000,
+        tools:[{type:'web_search_20250305',name:'web_search',max_uses:5}],
         messages:[{role:'user',content:prompt}]
       })
     });
