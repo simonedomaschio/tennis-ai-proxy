@@ -393,9 +393,12 @@ async function searchStats(){
   const surfaceParam = surfaceVal === 'clay' ? 'Clay' : surfaceVal === 'hard' ? 'Hard' : surfaceVal === 'grass' ? 'Grass' : 'Hard';
   const searchYear = document.getElementById('search-year').value;
 
-  const prompt=`Find ${searchYear} ATP stats for ${p1name} and ${p2name} on ${surfaceParam} surface. Search atptour.com player stats pages filtered by ${surfaceParam} surface and ${searchYear}. Return ONLY valid JSON:
-{"p1":{"name":"${p1name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"p2":{"name":"${p2name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"source":"","period":"${searchYear} ${surfaceParam}"}
-Fields: hold=service games won%, first=1st serve in%, w1st=1st serve pts won%, w2nd=2nd serve pts won%, ret=return games won%, ace=aces/match, df=double faults/match, wfs=win first set%. Use ONLY ${surfaceParam} filtered data, not career totals.`;
+  const prompt=`Search atptour.com for ${searchYear} ${surfaceParam} surface stats of ${p1name} and ${p2name}. Also try ultimatetennisstatistics.com.
+
+YOUR ENTIRE RESPONSE MUST BE ONLY THIS JSON OBJECT, NO OTHER TEXT BEFORE OR AFTER:
+{"p1":{"name":"${p1name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"p2":{"name":"${p2name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"source":"atptour.com","period":"${searchYear} ${surfaceParam}"}
+
+Replace the 0s with real values: hold=service games won%, first=1st serve%, w1st=1st serve pts won%, w2nd=2nd serve pts won%, ret=return games won%, ace=aces/match, df=df/match, wfs=first set win%. If data not found use career average. DO NOT write any explanation.`;
 
   try{
     const resp=await fetch(PROXY_URL,{
@@ -417,9 +420,21 @@ Fields: hold=service games won%, first=1st serve in%, w1st=1st serve pts won%, w
     }
     const text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
     if(!text){throw new Error('Nessun testo — blocchi ricevuti: '+data.content.map(b=>b.type).join(', '));}
-    const clean=text.replace(/```json|```/g,'').trim();
+    // Prova prima il testo pulito, poi estrae il JSON se l'AI ha aggiunto testo extra
+    let clean=text.replace(/```json|```/g,'').trim();
     let json;
-    try{json=JSON.parse(clean);}catch(e){throw new Error('JSON non valido: '+clean.slice(0,200));}
+    try{
+      json=JSON.parse(clean);
+    }catch(e){
+      // Cerca il JSON dentro il testo con regex
+      const match=clean.match(/\{[\s\S]*"p1"[\s\S]*"p2"[\s\S]*\}/);
+      if(match){
+        try{json=JSON.parse(match[0]);}
+        catch(e2){throw new Error('JSON non estraibile: '+clean.slice(0,300));}
+      } else {
+        throw new Error('JSON non trovato nella risposta: '+clean.slice(0,300));
+      }
+    }
 
     const setField=(id,val)=>{const el=document.getElementById(id);if(el&&val!==undefined&&val!==null){el.value=parseFloat(val).toFixed(1);}};
     setField('p1hold',json.p1.hold);setField('p1first',json.p1.first);setField('p1w1st',json.p1.w1st);
