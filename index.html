@@ -384,32 +384,38 @@ async function searchStats(){
 
   const surfaceQuery = surfaceVal === 'clay' ? 'clay' : surfaceVal === 'hard' ? 'hard' : surfaceVal === 'grass' ? 'grass' : 'hard';
 
-  const prompt=`Sei un esperto di statistiche tennis ATP. Devo trovare le statistiche di servizio e risposta di ${p1name} e ${p2name} su ${surfLabel} nel 2025.
+  const surfaceParam = surfaceVal === 'clay' ? 'Clay' : surfaceVal === 'hard' ? 'Hard' : surfaceVal === 'grass' ? 'Grass' : 'Hard';
 
-Cerca su questi siti in ordine di priorità:
-1. atptour.com/en/players - sezione Stats, filtra per ${surfaceQuery} e 2025
-2. tennisabstract.com - pagina del giocatore, tab superficie ${surfaceQuery}
-3. ultimatetennisstatistics.com - statistiche per superficie
+  const prompt=`Devi trovare le statistiche ATP UFFICIALI di ${p1name} e ${p2name} su ${surfLabel}.
 
-Per OGNI giocatore trova ESATTAMENTE questi valori su ${surfLabel}:
-- Service Games Won % (percentuale game di servizio vinti)
-- 1st Serve % (percentuale prime di servizio in campo)
-- 1st Serve Points Won % (punti vinti sulla prima di servizio)
-- 2nd Serve Points Won % (punti vinti sulla seconda di servizio)
-- Return Games Won % (percentuale game di risposta vinti)
-- Aces per match (media ace a partita)
-- Double Faults per match (media doppi falli a partita)
-- Win First Set % (percentuale set 1 vinti - cerca "won first set" o simile)
+STEP 1: Cerca su atptour.com le statistiche di ${p1name}. 
+L'URL esatto è: https://www.atptour.com/en/players/${p1name.toLowerCase().replace(' ','-')}/stats
+Oppure cerca: site:atptour.com "${p1name}" stats ${surfaceParam} 2025
+Guarda i numeri nella sezione Serve e Return FILTRATI per superficie ${surfaceParam}.
 
-Rispondimi SOLO con JSON valido, zero testo extra:
+STEP 2: Cerca allo stesso modo le statistiche di ${p2name} su atptour.com.
+
+STEP 3: Se atptour.com non basta, cerca su ultimatetennisstatistics.com "${p1name}" "${p2name}" ${surfaceQuery} stats.
+
+I valori che devo avere per CIASCUN giocatore, filtrati per ${surfLabel}:
+- Service Games Won % → campo "hold"
+- 1st Serve In % → campo "first"  
+- 1st Serve Points Won % → campo "w1st"
+- 2nd Serve Points Won % → campo "w2nd"
+- Return Games Won % → campo "ret"
+- Aces per match → campo "ace" (dividi totale ace per numero di match)
+- Double Faults per match → campo "df" (dividi totale DF per numero di match)
+- Win % when winning 1st set → campo "wfs" (se non trovi, cerca "first set won %")
+
+ATTENZIONE: usa SOLO dati filtrati per superficie ${surfaceParam}, NON dati career generali.
+
+Rispondimi SOLO con questo JSON, nessun testo:
 {
   "p1": {"name":"${p1name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},
   "p2": {"name":"${p2name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},
-  "source":"siti consultati",
-  "period":"anno/periodo dati"
-}
-
-IMPORTANTE: usa SOLO dati reali trovati online, NON inventare valori. Se non trovi un dato specifico per ${surfLabel}, usa i dati generali del giocatore. Se proprio non trovi nulla, metti null per quel campo.`;
+  "source":"URL esatti consultati",
+  "period":"2025 ${surfaceParam}"
+}`;
 
   try{
     const resp=await fetch(PROXY_URL,{
