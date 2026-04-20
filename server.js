@@ -1,4 +1,5 @@
 const https = require('https');
+const http = require('http');
 
 const PORT = process.env.PORT || 3000;
 
@@ -11,8 +12,8 @@ function corsHeaders() {
   };
 }
 
-require('http').createServer((req, res) => {
-  // CORS preflight
+http.createServer((req, res) => {
+
   if (req.method === 'OPTIONS') {
     res.writeHead(204, corsHeaders());
     res.end();
@@ -30,7 +31,15 @@ require('http').createServer((req, res) => {
         return;
       }
 
-      const payload = Buffer.from(body);
+      let parsed;
+      try { parsed = JSON.parse(body); } catch(e) {
+        res.writeHead(400, corsHeaders());
+        res.end(JSON.stringify({ error: { message: 'Body JSON non valido' } }));
+        return;
+      }
+
+      const payload = Buffer.from(JSON.stringify(parsed));
+
       const options = {
         hostname: 'api.anthropic.com',
         path: '/v1/messages',
@@ -48,8 +57,14 @@ require('http').createServer((req, res) => {
         let data = '';
         proxyRes.on('data', chunk => data += chunk);
         proxyRes.on('end', () => {
-          res.writeHead(proxyRes.statusCode, corsHeaders());
-          res.end(data);
+          try {
+            const parsed = JSON.parse(data);
+            res.writeHead(proxyRes.statusCode, corsHeaders());
+            res.end(JSON.stringify(parsed));
+          } catch(e) {
+            res.writeHead(500, corsHeaders());
+            res.end(JSON.stringify({ error: { message: 'Risposta API non valida: ' + data.slice(0,300) } }));
+          }
         });
       });
 
@@ -65,7 +80,7 @@ require('http').createServer((req, res) => {
   }
 
   // Health check
-  if (req.url === '/') {
+  if (req.method === 'GET' && req.url === '/') {
     res.writeHead(200, corsHeaders());
     res.end(JSON.stringify({ status: 'ok', service: 'TennisAI Proxy' }));
     return;
