@@ -169,6 +169,14 @@ select option{background:var(--card2);}
     <div class="card an d1">
       <div class="sec-title">🔍 Cerca Statistiche Giocatori</div>
       <div style="font-size:11px;color:var(--muted2);font-family:var(--mono);margin-bottom:12px;">Inserisci i nomi dei due giocatori e la superficie: l'AI cercherà le statistiche recenti e compilerà i campi automaticamente.</div>
+      <div style="margin-bottom:12px;padding:10px 12px;background:var(--card2);border-radius:6px;border:1px solid var(--border2);">
+        <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:6px;">URL PROXY RENDER — inserisci una volta sola</div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="proxy-url-input" placeholder="https://tuo-servizio.onrender.com" style="flex:1;background:var(--card);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 10px;outline:none;">
+          <button onclick="saveProxyUrl()" style="background:var(--green2);border:1px solid rgba(16,185,129,.4);border-radius:6px;color:var(--green);font-family:var(--sans);font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer;white-space:nowrap;">Salva</button>
+        </div>
+        <div id="proxy-saved-msg" style="font-size:10px;color:var(--green);font-family:var(--mono);margin-top:4px;display:none;">✓ Salvato</div>
+      </div>
       <div class="g3" style="margin-bottom:10px;">
         <div class="f"><label>Giocatore 1</label><input type="text" id="search-p1" placeholder="es. Sinner" autocomplete="off"></div>
         <div class="f"><label>Giocatore 2</label><input type="text" id="search-p2" placeholder="es. Alcaraz" autocomplete="off"></div>
@@ -338,6 +346,23 @@ function renderR(r){
   const top=r.sensitivity[0],t2=r.sensitivity[1];
   document.getElementById('rep-content').innerHTML=`<div class="rep-h">Il Verdetto</div><div class="rep-p">${gap>.2?`L'analisi di ${r.nsims.toLocaleString()} simulazioni assegna un vantaggio netto a <strong>${fav}</strong> (${p1d(favW)}). Il divario statistico è consistente e difficilmente reversibile.`:gap>.1?`<strong>${fav}</strong> parte favorito con il <strong>${p1d(favW)}</strong>. Il match è aperto ma le statistiche indicano un margine reale.`:`Match estremamente equilibrato. Soli ${(gap*100).toFixed(1)}pp separano i due giocatori — il risultato dipende dalla forma del giorno.`}</div><div class="rep-div"></div><div class="rep-h">I Numeri</div><div class="rep-p">Su ${r.nsims.toLocaleString()} simulazioni: P1 vince nel <strong>${p1d(p1w)}</strong> dei casi, P2 nel <strong>${p1d(p2w)}</strong>. ${s2>s3?`La partita si chiude in 2 set nel <strong>${p0(s2)}</strong> dei casi.`:`Alta probabilità di 3 set: <strong>${p0(s3)}</strong>.`} ${ou225>.6?`Over 22.5 games al ${p0(ou225)} — partita attesa lunga.`:ou225<.4?`Under 22.5 games al ${p0(1-ou225)} — partita attesa breve.`:''}</div><div class="rep-div"></div><div class="rep-h">La Superficie</div><div class="rep-p">${sT[r.surface]||sT.clay}</div><div class="rep-div"></div><div class="rep-h">Il Consiglio</div><div class="rep-p">${vbs.length?`Il pronostico principale è <strong>${fav}</strong>. Rilevati <strong>${vbs.length} value bet</strong> con edge positivo rispetto alle quote inserite.`:`Il pronostico principale è <strong>${fav}</strong>. Nessun value bet significativo rilevato con le quote inserite.`}</div><div class="rep-div"></div><div class="rep-h">Attenzione A...</div><div class="rep-p">${top?`I parametri con maggiore impatto sul risultato sono <strong>${top.stat} (${top.who})</strong>${t2?` e <strong>${t2.stat} (${t2.who})</strong>`:''} — verifica che siano aggiornati prima di affidarti al pronostico.`:'Impatto bilanciato su tutti i parametri — pronostico stabile.'}</div>`;
 }
+function saveProxyUrl(){
+  const url = document.getElementById('proxy-url-input').value.trim().replace(/\/+$/, '');
+  if(!url){alert('Inserisci l\'URL del tuo servizio Render');return;}
+  localStorage.setItem('tennis_proxy_url', url + '/api/claude');
+  document.getElementById('proxy-saved-msg').style.display='block';
+  setTimeout(()=>document.getElementById('proxy-saved-msg').style.display='none', 2000);
+}
+
+// Mostra URL salvato al caricamento
+window.addEventListener('DOMContentLoaded', ()=>{
+  const saved = localStorage.getItem('tennis_proxy_url');
+  if(saved){
+    const baseUrl = saved.replace('/api/claude','');
+    document.getElementById('proxy-url-input').value = baseUrl;
+  }
+});
+
 async function searchStats(){
   const p1name=document.getElementById('search-p1').value.trim();
   const p2name=document.getElementById('search-p2').value.trim();
@@ -353,7 +378,9 @@ async function searchStats(){
   status.innerHTML='<span class="spin"></span> Ricerca statistiche per <strong>'+p1name+'</strong> e <strong>'+p2name+'</strong> su '+surfLabel+'...';
 
   // URL del proxy — sostituisci con il tuo URL Render dopo il deploy
-  const PROXY_URL = 'https://tennis-ai-proxy.onrender.com/api/claude';
+  // Legge l'URL del proxy dal localStorage (configurabile una volta sola)
+  const savedProxy = localStorage.getItem('tennis_proxy_url');
+  const PROXY_URL = savedProxy || 'https://tennis-ai-proxy.onrender.com/api/claude';
 
   const prompt=`Sei un esperto di tennis ATP. Devo analizzare il match ${p1name} vs ${p2name} su ${surfLabel}.
 

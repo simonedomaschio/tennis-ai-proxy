@@ -1,39 +1,43 @@
 const https = require('https');
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = process.env.PORT || 3000;
 
 function corsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'POST, GET, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
-    'Content-Type': 'application/json',
   };
 }
 
 http.createServer((req, res) => {
 
+  // CORS preflight
   if (req.method === 'OPTIONS') {
     res.writeHead(204, corsHeaders());
     res.end();
     return;
   }
 
+  // API proxy — DEVE venire prima del catch-all HTML
   if (req.method === 'POST' && req.url === '/api/claude') {
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', () => {
       const apiKey = process.env.ANTHROPIC_API_KEY;
       if (!apiKey) {
-        res.writeHead(500, corsHeaders());
-        res.end(JSON.stringify({ error: { message: 'ANTHROPIC_API_KEY non configurata' } }));
+        res.writeHead(500, { ...corsHeaders(), 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: { message: 'ANTHROPIC_API_KEY non configurata sul server' } }));
         return;
       }
 
       let parsed;
-      try { parsed = JSON.parse(body); } catch(e) {
-        res.writeHead(400, corsHeaders());
+      try { parsed = JSON.parse(body); }
+      catch(e) {
+        res.writeHead(400, { ...corsHeaders(), 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: { message: 'Body JSON non valido' } }));
         return;
       }
@@ -58,18 +62,17 @@ http.createServer((req, res) => {
         proxyRes.on('data', chunk => data += chunk);
         proxyRes.on('end', () => {
           try {
-            const parsed = JSON.parse(data);
-            res.writeHead(proxyRes.statusCode, corsHeaders());
-            res.end(JSON.stringify(parsed));
+            res.writeHead(proxyRes.statusCode, { ...corsHeaders(), 'Content-Type': 'application/json' });
+            res.end(data);
           } catch(e) {
-            res.writeHead(500, corsHeaders());
-            res.end(JSON.stringify({ error: { message: 'Risposta API non valida: ' + data.slice(0,300) } }));
+            res.writeHead(500, { ...corsHeaders(), 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: { message: 'Errore interno: ' + e.message } }));
           }
         });
       });
 
       proxyReq.on('error', err => {
-        res.writeHead(500, corsHeaders());
+        res.writeHead(500, { ...corsHeaders(), 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: { message: err.message } }));
       });
 
@@ -80,13 +83,31 @@ http.createServer((req, res) => {
   }
 
   // Health check
-  if (req.method === 'GET' && req.url === '/') {
-    res.writeHead(200, corsHeaders());
-    res.end(JSON.stringify({ status: 'ok', service: 'TennisAI Proxy' }));
+  if (req.method === 'GET' && req.url === '/health') {
+    res.writeHead(200, { ...corsHeaders(), 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', proxy: 'TennisAI', apiKey: !!process.env.ANTHROPIC_API_KEY }));
     return;
   }
 
-  res.writeHead(404, corsHeaders());
+  // Serve index.html per tutte le altre GET
+  if (req.method === 'GET') {
+    const filePath = path.join(__dirname, 'index.html');
+    fs.readFile(filePath, (err, data) => {
+      if (err) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        res.end('index.html non trovato');
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(data);
+    });
+    return;
+  }
+
+  res.writeHead(404, { 'Content-Type': 'application/json' });
   res.end(JSON.stringify({ error: 'Not found' }));
 
-}).listen(PORT, () => console.log('Proxy running on port ' + PORT));
+}).listen(PORT, () => {
+  console.log('TennisAI Proxy running on port ' + PORT);
+  console.log('API Key configured:', !!process.env.ANTHROPIC_API_KEY);
+});
