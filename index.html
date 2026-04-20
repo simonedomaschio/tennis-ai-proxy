@@ -180,8 +180,14 @@ select option{background:var(--card2);}
       <div class="g3" style="margin-bottom:10px;">
         <div class="f"><label>Giocatore 1</label><input type="text" id="search-p1" placeholder="es. Sinner" autocomplete="off"></div>
         <div class="f"><label>Giocatore 2</label><input type="text" id="search-p2" placeholder="es. Alcaraz" autocomplete="off"></div>
-        <div class="f"><label>&nbsp;</label><button onclick="searchStats()" id="search-btn" style="background:linear-gradient(135deg,rgba(168,85,247,.3),rgba(59,130,246,.25));border:1px solid rgba(168,85,247,.4);border-radius:6px;color:#c4b5fd;font-family:var(--sans);font-size:13px;font-weight:600;padding:8px 14px;cursor:pointer;width:100%;transition:opacity .15s;">⚡ Cerca statistiche</button></div>
+        <div class="f"><label>Anno statistiche</label>
+          <select id="search-year" style="background:var(--card2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none;width:100%;">
+            <option value="2026">2026 (stagione corrente)</option>
+            <option value="2025" selected>2025</option>
+          </select>
+        </div>
       </div>
+      <button onclick="searchStats()" id="search-btn" style="background:linear-gradient(135deg,rgba(168,85,247,.3),rgba(59,130,246,.25));border:1px solid rgba(168,85,247,.4);border-radius:6px;color:#c4b5fd;font-family:var(--sans);font-size:13px;font-weight:600;padding:8px 14px;cursor:pointer;width:100%;transition:opacity .15s;margin-bottom:10px;">⚡ Cerca statistiche</button>
       <div id="search-status" style="display:none;font-size:11px;font-family:var(--mono);color:var(--muted2);padding:10px 12px;background:var(--card2);border-radius:6px;border:1px solid var(--border2);"></div>
     </div>
     <div class="card an d1">
@@ -385,37 +391,11 @@ async function searchStats(){
   const surfaceQuery = surfaceVal === 'clay' ? 'clay' : surfaceVal === 'hard' ? 'hard' : surfaceVal === 'grass' ? 'grass' : 'hard';
 
   const surfaceParam = surfaceVal === 'clay' ? 'Clay' : surfaceVal === 'hard' ? 'Hard' : surfaceVal === 'grass' ? 'Grass' : 'Hard';
+  const searchYear = document.getElementById('search-year').value;
 
-  const prompt=`Devi trovare le statistiche ATP UFFICIALI di ${p1name} e ${p2name} su ${surfLabel}.
-
-STEP 1: Cerca su atptour.com le statistiche di ${p1name}. 
-L'URL esatto è: https://www.atptour.com/en/players/${p1name.toLowerCase().replace(' ','-')}/stats
-Oppure cerca: site:atptour.com "${p1name}" stats ${surfaceParam} 2025
-Guarda i numeri nella sezione Serve e Return FILTRATI per superficie ${surfaceParam}.
-
-STEP 2: Cerca allo stesso modo le statistiche di ${p2name} su atptour.com.
-
-STEP 3: Se atptour.com non basta, cerca su ultimatetennisstatistics.com "${p1name}" "${p2name}" ${surfaceQuery} stats.
-
-I valori che devo avere per CIASCUN giocatore, filtrati per ${surfLabel}:
-- Service Games Won % → campo "hold"
-- 1st Serve In % → campo "first"  
-- 1st Serve Points Won % → campo "w1st"
-- 2nd Serve Points Won % → campo "w2nd"
-- Return Games Won % → campo "ret"
-- Aces per match → campo "ace" (dividi totale ace per numero di match)
-- Double Faults per match → campo "df" (dividi totale DF per numero di match)
-- Win % when winning 1st set → campo "wfs" (se non trovi, cerca "first set won %")
-
-ATTENZIONE: usa SOLO dati filtrati per superficie ${surfaceParam}, NON dati career generali.
-
-Rispondimi SOLO con questo JSON, nessun testo:
-{
-  "p1": {"name":"${p1name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},
-  "p2": {"name":"${p2name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},
-  "source":"URL esatti consultati",
-  "period":"2025 ${surfaceParam}"
-}`;
+  const prompt=`Find ${searchYear} ATP stats for ${p1name} and ${p2name} on ${surfaceParam} surface. Search atptour.com player stats pages filtered by ${surfaceParam} surface and ${searchYear}. Return ONLY valid JSON:
+{"p1":{"name":"${p1name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"p2":{"name":"${p2name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"source":"","period":"${searchYear} ${surfaceParam}"}
+Fields: hold=service games won%, first=1st serve in%, w1st=1st serve pts won%, w2nd=2nd serve pts won%, ret=return games won%, ace=aces/match, df=double faults/match, wfs=win first set%. Use ONLY ${surfaceParam} filtered data, not career totals.`;
 
   try{
     const resp=await fetch(PROXY_URL,{
@@ -423,7 +403,7 @@ Rispondimi SOLO con questo JSON, nessun testo:
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
-        max_tokens:2000,
+        max_tokens:1000,
         tools:[{type:'web_search_20250305',name:'web_search',max_uses:5}],
         messages:[{role:'user',content:prompt}]
       })
