@@ -393,12 +393,14 @@ async function searchStats(){
   const surfaceParam = surfaceVal === 'clay' ? 'Clay' : surfaceVal === 'hard' ? 'Hard' : surfaceVal === 'grass' ? 'Grass' : 'Hard';
   const searchYear = document.getElementById('search-year').value;
 
-  const prompt=`Search atptour.com for ${searchYear} ${surfaceParam} surface stats of ${p1name} and ${p2name}. Also try ultimatetennisstatistics.com.
+  const prompt=`ATP ${searchYear} ${surfaceParam} stats for ${p1name} vs ${p2name}. Use your knowledge of ATP player statistics.
 
-YOUR ENTIRE RESPONSE MUST BE ONLY THIS JSON OBJECT, NO OTHER TEXT BEFORE OR AFTER:
-{"p1":{"name":"${p1name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"p2":{"name":"${p2name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"source":"atptour.com","period":"${searchYear} ${surfaceParam}"}
+RESPOND WITH ONLY THIS JSON, NO OTHER TEXT:
+{"p1":{"name":"${p1name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"p2":{"name":"${p2name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"source":"ATP knowledge base","period":"${searchYear} ${surfaceParam}"}
 
-Replace the 0s with real values: hold=service games won%, first=1st serve%, w1st=1st serve pts won%, w2nd=2nd serve pts won%, ret=return games won%, ace=aces/match, df=df/match, wfs=first set win%. If data not found use career average. DO NOT write any explanation.`;
+Fill each 0 with the real ${searchYear} value on ${surfaceParam} for that player:
+hold=service games won%, first=1st serve in%, w1st=1st serve points won%, w2nd=2nd serve points won%, ret=return games won%, ace=avg aces per match, df=avg double faults per match, wfs=win % when winning 1st set.
+If ${searchYear} data unavailable use ${searchYear === '2026' ? '2025' : '2024'} or career ${surfaceParam} average. Never use 0.`;
 
   try{
     const resp=await fetch(PROXY_URL,{
@@ -407,7 +409,7 @@ Replace the 0s with real values: hold=service games won%, first=1st serve%, w1st
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
         max_tokens:1000,
-        tools:[{type:'web_search_20250305',name:'web_search',max_uses:5}],
+        system:'You are a tennis statistics expert. You have detailed knowledge of ATP player statistics. Always respond with ONLY a valid JSON object, never with explanatory text.',
         messages:[{role:'user',content:prompt}]
       })
     });
