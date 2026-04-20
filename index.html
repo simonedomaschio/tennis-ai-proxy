@@ -310,30 +310,73 @@ async function searchStats(){
   const status=document.getElementById('search-status');
   btn.disabled=true;btn.innerHTML='<span class="spin"></span>Ricerca...';
   status.style.display='block';
-  status.innerHTML='<span class="spin"></span> Cerco statistiche per '+p1n+' e '+p2n+'...';
+  status.style.borderColor='var(--border2)';status.style.background='var(--card2)';
+  status.innerHTML='<span class="spin"></span> Cerco su Tennis Abstract le statistiche di '+p1n+' e '+p2n+' su '+surfLabel+'...';
 
-  const prompt=`ATP ${yr} ${surfLabel} surface stats for ${p1n} and ${p2n}. RESPOND WITH ONLY THIS JSON:
-{"p1":{"name":"${p1n}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"p2":{"name":"${p2n}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"source":"ATP","period":"${yr} ${surfLabel}"}
-Values: hold=svc games won%, first=1st serve in%, w1st=1st serve pts won%, w2nd=2nd serve pts won%, ret=return games won%, ace=aces/match, df=df/match, wfs=first set win%. Use real ATP data. No zero values.`;
+  const sf=(id,val)=>{const el=document.getElementById(id);if(el&&val!==null&&val!==undefined&&!isNaN(parseFloat(val))){el.value=parseFloat(val).toFixed(1);el.style.borderColor='rgba(16,185,129,.7)';setTimeout(()=>el.style.borderColor='',2500);}};
 
   try{
-    const resp=await fetch(getProxy()+'/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,
-        system:'You are a tennis statistics expert. Respond ONLY with valid JSON, no other text.',
-        messages:[{role:'user',content:prompt}]})});
+    // Step 1: prova Tennis Abstract via scraper server
+    const resp=await fetch(getProxy()+'/api/stats',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({p1name:p1n, p2name:p2n, surface:surfVal, season:yr})});
     const data=await resp.json();
-    if(data.error)throw new Error(data.error.message||JSON.stringify(data.error));
-    const text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
+
+    if(!data.error && (data.p1?.stats || data.p2?.stats)){
+      let loaded=0;
+      let sources=[];
+      if(data.p1?.stats){
+        const s=data.p1.stats;
+        sf('p1hold',s.hold);sf('p1first',s.first);sf('p1w1st',s.w1st);
+        sf('p1w2nd',s.w2nd);sf('p1wfs',s.wfs);sf('p1ret',s.ret);
+        sf('p1ace',s.ace);sf('p1df',s.df);
+        if(data.p1.source)sources.push(data.p1.source);
+        loaded++;
+      }
+      if(data.p2?.stats){
+        const s=data.p2.stats;
+        sf('p2hold',s.hold);sf('p2first',s.first);sf('p2w1st',s.w1st);
+        sf('p2w2nd',s.w2nd);sf('p2wfs',s.wfs);sf('p2ret',s.ret);
+        sf('p2ace',s.ace);sf('p2df',s.df);
+        if(data.p2.source && !sources.includes(data.p2.source))sources.push(data.p2.source);
+        loaded++;
+      }
+      if(loaded>0){
+        status.innerHTML='✓ Statistiche caricate da <strong>'+([...new Set(sources)].join(', ')||'Tennis Abstract')+'</strong> — '+surfLabel+' '+yr;
+        status.style.borderColor='rgba(16,185,129,.3)';status.style.background='rgba(16,185,129,.05)';
+        btn.disabled=false;btn.innerHTML='⚡ Cerca statistiche';
+        return;
+      }
+    }
+  }catch(e){
+    console.log('Scraper fallito, uso Claude:', e.message);
+  }
+
+  // Step 2: fallback a Claude AI con web search
+  status.innerHTML='<span class="spin"></span> Cerco statistiche reali su ATP Tour e Tennis Abstract...';
+  const prompt=`Search for the real ${yr} ATP statistics of ${p1n} and ${p2n} on ${surfLabel} surface.
+Look on atptour.com player stats pages filtered by ${surfLabel} and ${yr}, and tennisabstract.com.
+Return ONLY this JSON with real values found online:
+{"p1":{"name":"${p1n}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"p2":{"name":"${p2n}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"source":"atptour.com","period":"${yr} ${surfLabel}"}
+Fields: hold=service games won%, first=1st serve in%, w1st=1st serve pts won%, w2nd=2nd serve pts won%, ret=return games won%, ace=avg aces/match, df=avg double faults/match, wfs=win first set%. NEVER use 0 or invented values.`;
+  try{
+    const resp2=await fetch(getProxy()+'/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,
+        tools:[{type:'web_search_20250305',name:'web_search'}],
+        system:'You are a tennis statistics expert. Always search for real data before responding. Respond ONLY with valid JSON.',
+        messages:[{role:'user',content:prompt}]})});
+    const data2=await resp2.json();
+    if(data2.error)throw new Error(data2.error.message||JSON.stringify(data2.error));
+    const text=data2.content.filter(b=>b.type==='text').map(b=>b.text).join('');
     const match=text.replace(/```json|```/g,'').match(/\{[\s\S]*"p1"[\s\S]*"p2"[\s\S]*\}/);
     if(!match)throw new Error('Risposta non in formato JSON');
     const json=JSON.parse(match[0]);
-    const sf=(id,val)=>{const el=document.getElementById(id);if(el&&val&&!isNaN(parseFloat(val))){el.value=parseFloat(val).toFixed(1);el.style.borderColor='rgba(16,185,129,.7)';setTimeout(()=>el.style.borderColor='',2000);}};
     sf('p1hold',json.p1.hold);sf('p1first',json.p1.first);sf('p1w1st',json.p1.w1st);sf('p1w2nd',json.p1.w2nd);sf('p1wfs',json.p1.wfs);sf('p1ret',json.p1.ret);sf('p1ace',json.p1.ace);sf('p1df',json.p1.df);
     sf('p2hold',json.p2.hold);sf('p2first',json.p2.first);sf('p2w1st',json.p2.w1st);sf('p2w2nd',json.p2.w2nd);sf('p2wfs',json.p2.wfs);sf('p2ret',json.p2.ret);sf('p2ace',json.p2.ace);sf('p2df',json.p2.df);
-    status.innerHTML='✓ Statistiche caricate — '+json.period+' · Fonte: '+json.source;
+    const srcLabel = json.source && json.source !== 'AI estimate' ? json.source : 'ATP Tour / Tennis Abstract';
+    status.innerHTML='✓ Statistiche caricate da <strong>'+srcLabel+'</strong> — '+json.period;
     status.style.borderColor='rgba(16,185,129,.3)';status.style.background='rgba(16,185,129,.05)';
   }catch(err){
-    status.innerHTML='⚠ '+err.message;
+    status.innerHTML='⚠ Errore: '+err.message;
     status.style.borderColor='rgba(239,68,68,.3)';status.style.background='rgba(239,68,68,.05)';
   }
   btn.disabled=false;btn.innerHTML='⚡ Cerca statistiche';
