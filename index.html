@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>TennisAI — Analisi Match</title>
+<title>TennisAI — Analisi Match v9</title>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -355,112 +355,153 @@ function renderR(r){
 function saveProxyUrl(){
   const url = document.getElementById('proxy-url-input').value.trim().replace(/\/+$/, '');
   if(!url){alert('Inserisci l\'URL del tuo servizio Render');return;}
-  localStorage.setItem('tennis_proxy_url', url + '/api/claude');
+  localStorage.setItem('tennis_proxy_url', url);
   document.getElementById('proxy-saved-msg').style.display='block';
   setTimeout(()=>document.getElementById('proxy-saved-msg').style.display='none', 2000);
 }
 
-// Mostra URL salvato al caricamento
 window.addEventListener('DOMContentLoaded', ()=>{
   const saved = localStorage.getItem('tennis_proxy_url');
-  if(saved){
-    const baseUrl = saved.replace('/api/claude','');
-    document.getElementById('proxy-url-input').value = baseUrl;
-  }
+  if(saved) document.getElementById('proxy-url-input').value = saved;
 });
+
+function getProxyBase(){
+  return (localStorage.getItem('tennis_proxy_url') || 'https://tennis-ai-proxy.onrender.com').replace(/\/+$/, '');
+}
 
 async function searchStats(){
   const p1name=document.getElementById('search-p1').value.trim();
   const p2name=document.getElementById('search-p2').value.trim();
   if(!p1name||!p2name){alert('Inserisci i nomi di entrambi i giocatori');return;}
   const surfaceVal=document.getElementById('surface').value;
-  const surfNames={hard:'cemento (hard)',clay:'terra battuta (clay)',grass:'erba (grass)',indoor:'indoor hard'};
-  const surfLabel=surfNames[surfaceVal]||'terra battuta';
+  const searchYear=document.getElementById('search-year').value;
 
   const btn=document.getElementById('search-btn');
   const status=document.getElementById('search-status');
   btn.disabled=true;btn.innerHTML='<span class="spin"></span>Ricerca in corso...';
   status.style.display='block';
-  status.innerHTML='<span class="spin"></span> Cerco su ATP Tour, Tennis Abstract e Ultimate Tennis Statistics le statistiche di <strong>'+p1name+'</strong> e <strong>'+p2name+'</strong> su '+surfLabel+'... (15-20 sec)';
+  status.style.borderColor='var(--border2)';status.style.background='var(--card2)';
+  status.innerHTML='<span class="spin"></span> Cerco statistiche su Ultimate Tennis Statistics per <strong>'+p1name+'</strong> e <strong>'+p2name+'</strong>...';
 
-  // URL del proxy — sostituisci con il tuo URL Render dopo il deploy
-  // Legge l'URL del proxy dal localStorage (configurabile una volta sola)
-  const savedProxy = localStorage.getItem('tennis_proxy_url');
-  const PROXY_URL = savedProxy || 'https://tennis-ai-proxy.onrender.com/api/claude';
-
-  const surfaceQuery = surfaceVal === 'clay' ? 'clay' : surfaceVal === 'hard' ? 'hard' : surfaceVal === 'grass' ? 'grass' : 'hard';
-
-  const surfaceParam = surfaceVal === 'clay' ? 'Clay' : surfaceVal === 'hard' ? 'Hard' : surfaceVal === 'grass' ? 'Grass' : 'Hard';
-  const searchYear = document.getElementById('search-year').value;
-
-  const prompt=`ATP ${searchYear} ${surfaceParam} stats for ${p1name} vs ${p2name}. Use your knowledge of ATP player statistics.
-
-RESPOND WITH ONLY THIS JSON, NO OTHER TEXT:
-{"p1":{"name":"${p1name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"p2":{"name":"${p2name}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"source":"ATP knowledge base","period":"${searchYear} ${surfaceParam}"}
-
-Fill each 0 with the real ${searchYear} value on ${surfaceParam} for that player:
-hold=service games won%, first=1st serve in%, w1st=1st serve points won%, w2nd=2nd serve points won%, ret=return games won%, ace=avg aces per match, df=avg double faults per match, wfs=win % when winning 1st set.
-If ${searchYear} data unavailable use ${searchYear === '2026' ? '2025' : '2024'} or career ${surfaceParam} average. Never use 0.`;
+  const proxyBase = getProxyBase();
 
   try{
-    const resp=await fetch(PROXY_URL,{
+    const resp = await fetch(proxyBase + '/api/stats', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ p1name, p2name, surface: surfaceVal, season: searchYear })
+    });
+
+    const data = await resp.json();
+    if(data.error) throw new Error(data.error);
+
+    const setField=(id,val)=>{
+      const el=document.getElementById(id);
+      if(el&&val!==null&&val!==undefined&&!isNaN(val)){
+        el.value=parseFloat(val).toFixed(1);
+        el.style.borderColor='rgba(16,185,129,.7)';
+        el.style.background='rgba(16,185,129,.07)';
+        setTimeout(()=>{el.style.borderColor='';el.style.background='';},2500);
+      }
+    };
+
+    let loaded = 0;
+    if(data.p1&&data.p1.stats){
+      const s=data.p1.stats;
+      setField('p1hold',s.hold);setField('p1first',s.first);setField('p1w1st',s.w1st);
+      setField('p1w2nd',s.w2nd);setField('p1wfs',s.wfs);setField('p1ret',s.ret);
+      setField('p1ace',s.ace);setField('p1df',s.df);
+      loaded++;
+    }
+    if(data.p2&&data.p2.stats){
+      const s=data.p2.stats;
+      setField('p2hold',s.hold);setField('p2first',s.first);setField('p2w1st',s.w1st);
+      setField('p2w2nd',s.w2nd);setField('p2wfs',s.wfs);setField('p2ret',s.ret);
+      setField('p2ace',s.ace);setField('p2df',s.df);
+      loaded++;
+    }
+
+    const src1 = data.p1?.source || '—';
+    const src2 = data.p2?.source || '—';
+    const notFound = [];
+    if(!data.p1?.found) notFound.push(p1name);
+    if(!data.p2?.found) notFound.push(p2name);
+
+    if(loaded===0){
+      // Fallback a Claude se UTS non trova nessuno
+      await searchWithClaude(p1name, p2name, surfaceVal, searchYear, btn, status);
+      return;
+    }
+
+    status.innerHTML='✓ Statistiche caricate da <strong>'+src1+'</strong>'
+      +(notFound.length?'<br><span style="color:var(--amber);font-size:10px;">Non trovato: '+notFound.join(', ')+' — dati stimati dal modello AI</span>':'');
+    status.style.borderColor='rgba(16,185,129,.3)';status.style.background='rgba(16,185,129,.05)';
+
+    // Se un giocatore non trovato su UTS, fallback AI solo per quello
+    if(notFound.length>0){
+      await searchWithClaude(
+        notFound.includes(p1name)?p1name:null,
+        notFound.includes(p2name)?p2name:null,
+        surfaceVal, searchYear, null, null
+      );
+    }
+
+  }catch(err){
+    console.error(err);
+    // Fallback completo a Claude
+    await searchWithClaude(p1name, p2name, surfaceVal, searchYear, btn, status);
+    return;
+  }
+  btn.disabled=false;btn.innerHTML='⚡ Cerca statistiche';
+}
+
+async function searchWithClaude(p1name, p2name, surfaceVal, searchYear, btn, status){
+  const surfaceParam = surfaceVal==='clay'?'Clay':surfaceVal==='hard'?'Hard':surfaceVal==='grass'?'Grass':'Hard';
+  if(status) status.innerHTML='<span class="spin"></span> UTS non disponibile — uso il modello AI...';
+
+  const prompt=`ATP ${searchYear} ${surfaceParam} stats for ${p1name||'skip'} and ${p2name||'skip'}. RESPOND WITH ONLY THIS JSON:
+{"p1":{"name":"${p1name||''}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"p2":{"name":"${p2name||''}","hold":0,"first":0,"w1st":0,"w2nd":0,"wfs":0,"ret":0,"ace":0,"df":0},"source":"AI estimate","period":"${searchYear} ${surfaceParam}"}
+Fill 0s with real values. hold=svc games won%, first=1st serve%, w1st=1st serve pts won%, w2nd=2nd serve pts won%, ret=return games won%, ace=aces/match, df=df/match, wfs=first set win%.`;
+
+  try{
+    const proxyBase = getProxyBase();
+    const resp=await fetch(proxyBase+'/api/claude',{
+      method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1000,
-        system:'You are a tennis statistics expert. You have detailed knowledge of ATP player statistics. Always respond with ONLY a valid JSON object, never with explanatory text.',
+        model:'claude-sonnet-4-20250514',max_tokens:600,
+        system:'You are a tennis statistics expert. Respond ONLY with valid JSON.',
         messages:[{role:'user',content:prompt}]
       })
     });
     const data=await resp.json();
-    console.log('API response status:', resp.status);
-    console.log('API response data:', JSON.stringify(data).slice(0,500));
-    if(data.error){throw new Error(data.error.message||data.error.type||JSON.stringify(data.error));}
-    if(!data.content||!Array.isArray(data.content)){
-      throw new Error('Risposta non valida: '+JSON.stringify(data).slice(0,300));
-    }
+    if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
     const text=data.content.filter(b=>b.type==='text').map(b=>b.text).join('');
-    if(!text){throw new Error('Nessun testo — blocchi ricevuti: '+data.content.map(b=>b.type).join(', '));}
-    // Prova prima il testo pulito, poi estrae il JSON se l'AI ha aggiunto testo extra
-    let clean=text.replace(/```json|```/g,'').trim();
-    let json;
-    try{
-      json=JSON.parse(clean);
-    }catch(e){
-      // Cerca il JSON dentro il testo con regex
-      const match=clean.match(/\{[\s\S]*"p1"[\s\S]*"p2"[\s\S]*\}/);
-      if(match){
-        try{json=JSON.parse(match[0]);}
-        catch(e2){throw new Error('JSON non estraibile: '+clean.slice(0,300));}
-      } else {
-        throw new Error('JSON non trovato nella risposta: '+clean.slice(0,300));
-      }
+    const match=text.replace(/```json|```/g,'').trim().match(/\{[\s\S]*"p1"[\s\S]*"p2"[\s\S]*\}/);
+    if(!match) throw new Error('JSON non trovato');
+    const json=JSON.parse(match[0]);
+
+    const setField=(id,val)=>{const el=document.getElementById(id);if(el&&val!==null&&val!==undefined&&!isNaN(parseFloat(val))){el.value=parseFloat(val).toFixed(1);}};
+    if((!p1name||json.p1.name)&&json.p1.hold){
+      setField('p1hold',json.p1.hold);setField('p1first',json.p1.first);setField('p1w1st',json.p1.w1st);
+      setField('p1w2nd',json.p1.w2nd);setField('p1wfs',json.p1.wfs);setField('p1ret',json.p1.ret);
+      setField('p1ace',json.p1.ace);setField('p1df',json.p1.df);
     }
-
-    const setField=(id,val)=>{const el=document.getElementById(id);if(el&&val!==undefined&&val!==null){el.value=parseFloat(val).toFixed(1);}};
-    setField('p1hold',json.p1.hold);setField('p1first',json.p1.first);setField('p1w1st',json.p1.w1st);
-    setField('p1w2nd',json.p1.w2nd);setField('p1wfs',json.p1.wfs);setField('p1ret',json.p1.ret);
-    setField('p1ace',json.p1.ace);setField('p1df',json.p1.df);
-    setField('p2hold',json.p2.hold);setField('p2first',json.p2.first);setField('p2w1st',json.p2.w1st);
-    setField('p2w2nd',json.p2.w2nd);setField('p2wfs',json.p2.wfs);setField('p2ret',json.p2.ret);
-    setField('p2ace',json.p2.ace);setField('p2df',json.p2.df);
-
-    ['p1hold','p1first','p1w1st','p1w2nd','p1wfs','p1ret','p1ace','p1df',
-     'p2hold','p2first','p2w1st','p2w2nd','p2wfs','p2ret','p2ace','p2df'].forEach(id=>{
-      const el=document.getElementById(id);if(el){el.style.borderColor='rgba(16,185,129,.7)';el.style.background='rgba(16,185,129,.07)';setTimeout(()=>{el.style.borderColor='';el.style.background='';},2000);}
-    });
-
-    status.innerHTML='✓ Statistiche caricate per <strong>'+json.p1.name+'</strong> e <strong>'+json.p2.name+'</strong>'
-      +(json.period?` — ${json.period}`:'')
-      +(json.source?`<br><span style="color:var(--muted);font-size:10px;">Fonte: ${json.source}</span>`:'');
-    status.style.borderColor='rgba(16,185,129,.3)';status.style.background='rgba(16,185,129,.05)';
-
-  }catch(err){
-    status.innerHTML='⚠ Errore: '+err.message;
-    status.style.borderColor='rgba(239,68,68,.3)';status.style.background='rgba(239,68,68,.05)';
+    if((!p2name||json.p2.name)&&json.p2.hold){
+      setField('p2hold',json.p2.hold);setField('p2first',json.p2.first);setField('p2w1st',json.p2.w1st);
+      setField('p2w2nd',json.p2.w2nd);setField('p2wfs',json.p2.wfs);setField('p2ret',json.p2.ret);
+      setField('p2ace',json.p2.ace);setField('p2df',json.p2.df);
+    }
+    if(status){
+      status.innerHTML='✓ Statistiche caricate dal modello AI — verifica i valori prima di simulare.';
+      status.style.borderColor='rgba(245,158,11,.3)';status.style.background='rgba(245,158,11,.05)';
+    }
+  }catch(e){
+    if(status){
+      status.innerHTML='⚠ Errore: '+e.message;
+      status.style.borderColor='rgba(239,68,68,.3)';status.style.background='rgba(239,68,68,.05)';
+    }
   }
-  btn.disabled=false;btn.innerHTML='⚡ Cerca statistiche';
+  if(btn){btn.disabled=false;btn.innerHTML='⚡ Cerca statistiche';}
 }
 </script>
 </body>
