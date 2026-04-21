@@ -5,8 +5,8 @@ const BASE = `https://${HOST}/tennis/v2/atp`;
 
 function apiGet(path) {
   const key = process.env.RAPIDAPI_KEY || '';
+  const url = path.startsWith('http') ? path : BASE + path;
   return new Promise((resolve, reject) => {
-    const url = path.startsWith('http') ? path : BASE + path;
     https.get(url, {
       headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': HOST },
       timeout: 15000
@@ -21,146 +21,135 @@ function apiGet(path) {
   });
 }
 
-// Cerca giocatore per nome usando l'endpoint search/misc
+// Normalizza nome per confronto
+function normName(s) {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+}
+
+// Cerca giocatore scorrendo la lista ATP
 async function findPlayer(name) {
   const key = process.env.RAPIDAPI_KEY || '';
   if (!key) throw new Error('RAPIDAPI_KEY non configurata su Render');
 
-  // Prova endpoint search
-  const encoded = encodeURIComponent(name);
-  const searchRes = await apiGet(`/misc/search?q=${encoded}`);
-  console.log('Search result for', name, ':', JSON.stringify(searchRes.body)?.slice(0, 300));
+  const searchName = normName(name);
+  const parts = searchName.split(/\s+/).filter(p => p.length > 2);
 
-  if (searchRes.status === 200 && searchRes.body) {
-    const results = Array.isArray(searchRes.body) ? searchRes.body
-      : (searchRes.body.data || searchRes.body.players || searchRes.body.results || []);
+  console.log(`Searching for: "${name}" (normalized: "${searchName}")`);
 
-    // Cerca player (type=player o simile)
-    const player = results.find(r =>
-      (r.type === 'player' || r.entityType === 'player' || r.category === 'player' || !r.type) &&
-      r.id && r.name
-    );
-    if (player) return player;
-  }
-
-  // Fallback: cerca nella lista giocatori per nome
-  const nameLower = name.toLowerCase().trim();
-  const nameParts = nameLower.split(/\s+/);
-
+  // Scarica le prime 5 pagine (500 giocatori) e cerca
   for (let page = 1; page <= 5; page++) {
-    const res = await apiGet(`/player?pageSize=200&pageNo=${page}`);
-    if (!res.body || !Array.isArray(res.body) || res.body.length === 0) break;
+    const res = await apiGet(`/player?pageSize=100&pageNo=${page}`);
+    
+    if (!res.body) {
+      console.log(`Page ${page}: no body, status ${res.status}, raw: ${res.raw}`);
+      break;
+    }
+    
+    const list = Array.isArray(res.body) ? res.body : 
+                 (res.body.data || res.body.players || res.body.results || []);
+    
+    if (list.length === 0) break;
+    
+    console.log(`Page ${page}: ${list.length} players, first: ${list[0]?.name}`);
 
-    const found = res.body.find(p => {
-      const pn = (p.name || '').toLowerCase();
-      return pn === nameLower || nameParts.every(part => pn.includes(part));
+    // Match esatto o parziale
+    const found = list.find(p => {
+      const pn = normName(p.name);
+      if (pn === searchName) return true;
+      // Tutte le parti del nome cercato sono nel nome del giocatore
+      return parts.length > 0 && parts.every(part => pn.includes(part));
     });
+
     if (found) {
-      console.log('Found via list:', found.name, found.id);
+      console.log(`Found: ${found.name} (id: ${found.id})`);
       return found;
     }
   }
 
+  console.log(`Not found: ${name}`);
   return null;
 }
 
-// Prende surface summary
-async function getSurfaceSummary(playerId) {
-  const res = await apiGet(`/player/surface-summary/${playerId}`);
-  console.log('Surface summary status:', res.status, ':', JSON.stringify(res.body)?.slice(0, 400));
-  return res.status === 200 ? res.body : null;
-}
-
-// Prende match stats
-async function getMatchStats(playerId) {
-  const res = await apiGet(`/player/match-stats/${playerId}`);
-  console.log('Match stats status:', res.status, ':', JSON.stringify(res.body)?.slice(0, 400));
-  return res.status === 200 ? res.body : null;
-}
-
-// Prende past matches filtrati per superficie e anno
-async function getPastMatches(playerId, surface, season) {
-  const surfMap = { clay: 'Clay', hard: 'Hard', grass: 'Grass', indoor: 'Hard' };
-  const surf = surfMap[surface] || 'Clay';
-  let path = `/player/past-matches/${playerId}?pageSize=200`;
-  const res = await apiGet(path);
-  console.log('Past matches status:', res.status, 'count:', Array.isArray(res.body) ? res.body.length : JSON.stringify(res.body)?.slice(0,100));
-
-  if (res.status !== 200 || !res.body) return [];
-  const matches = Array.isArray(res.body) ? res.body : (res.body.data || res.body.matches || []);
-
-  return matches.filter(m => {
-    const mSurf = (m.surface || m.courtType || m.court_type || '').toLowerCase();
-    const mYear = (m.date || m.tourney_date || m.match_date || '').slice(0, 4);
-    const surfOk = mSurf.includes(surf.toLowerCase());
-    const yearOk = !season || mYear === season.toString();
-    return surfOk && yearOk;
-  });
-}
-
 // Calcola statistiche dai past matches
-function calcFromMatches(matches, playerName) {
-  const n = playerName.toLowerCase();
-  const nameParts = n.split(/\s+/);
+async function getStatsFromMatches(playerId, name, surface, season) {
+  const surfMap = { clay: 'clay', hard: 'hard', grass: 'grass', indoor: 'hard' };
+  const surf = surfMap[surface] || 'clay';
+  
+  const res = await apiGet(`/player/past-matches/${playerId}?pageSize=200&pageNo=1`);
+  if (!res.body) return null;
+  
+  const all = Array.isArray(res.body) ? res.body : (res.body.data || res.body.matches || []);
+  console.log(`Total past matches for ${name}: ${all.length}`);
+  console.log(`Sample match:`, JSON.stringify(all[0] || {}).slice(0, 300));
 
-  let firstIn=0, firstTot=0, firstWon=0, w1stOf=0;
-  let secondWon=0, secondTot=0;
-  let aces=0, dfs=0;
-  let bpFaced=0, bpSaved=0, bpChances=0, bpWon=0;
-  let fsWon=0, total=0;
+  // Filtra per superficie
+  const filtered = all.filter(m => {
+    const mSurf = normName(m.surface || m.court_type || m.courtType || '');
+    return mSurf.includes(surf) || mSurf.includes(surf === 'clay' ? 'clay' : surf);
+  });
+  
+  // Filtra per anno se richiesto
+  const byYear = season ? filtered.filter(m => {
+    const d = m.date || m.tournament_date || m.tourney_date || '';
+    return d.startsWith(season.toString());
+  }) : filtered;
+
+  const useMatches = byYear.length >= 3 ? byYear : filtered;
+  console.log(`Matches on ${surf} (${season}): ${byYear.length}, career: ${filtered.length}, using: ${useMatches.length}`);
+
+  if (useMatches.length < 2) return null;
+
+  return calcStats(useMatches, name);
+}
+
+function calcStats(matches, playerName) {
+  const nParts = normName(playerName).split(/\s+/).filter(p => p.length > 2);
+  
+  let f1=0,f1of=0,f1won=0,s1won=0,s1of=0,aces=0,dfs=0;
+  let bpF=0,bpS=0,bpC=0,bpW=0,fsW=0,total=0;
 
   matches.forEach(m => {
-    // Capisce se il giocatore è winner o loser
-    const wName = (m.winner_name || m.winner || m.w_name || '').toLowerCase();
-    const lName = (m.loser_name || m.loser || m.l_name || '').toLowerCase();
-    const isWinner = nameParts.some(p => wName.includes(p));
-    const pfx = isWinner ? 'w_' : 'l_';
-    const opfx = isWinner ? 'l_' : 'w_';
+    const wn = normName(m.winner_name || m.winner || m.w_name || '');
+    const isW = nParts.some(p => wn.includes(p));
+    const pfx = isW ? 'w_' : 'l_';
+    const opfx = isW ? 'l_' : 'w_';
 
-    const get = (obj, ...keys) => {
-      for (const k of keys) if (obj[k] !== undefined) return parseFloat(obj[k]) || 0;
-      return 0;
-    };
+    const n = k => parseFloat(m[k] || m[pfx+k.replace('w_','').replace('l_','')] || 0) || 0;
+    
+    const svpt = parseFloat(m[pfx+'svpt'] || m.svpt || 0) || 0;
+    if (svpt < 1) return; // skip matches without stats
 
-    const svpt  = get(m, pfx+'svpt', 'svpt');
-    const fIn   = get(m, pfx+'1stIn', '1stIn');
-    const fWon  = get(m, pfx+'1stWon', '1stWon');
-    const sWon  = get(m, pfx+'2ndWon', '2ndWon');
-    const ace   = get(m, pfx+'ace', 'ace');
-    const df    = get(m, pfx+'df', 'df');
-    const bpF   = get(m, pfx+'bpFaced', 'bpFaced');
-    const bpS   = get(m, pfx+'bpSaved', 'bpSaved');
-    const bpC   = get(m, opfx+'bpFaced', 'o_bpFaced');
-    const bpC2  = get(m, opfx+'bpSaved', 'o_bpSaved');
+    const _f1    = parseFloat(m[pfx+'1stIn']  || 0);
+    const _f1won = parseFloat(m[pfx+'1stWon'] || 0);
+    const _swon  = parseFloat(m[pfx+'2ndWon'] || 0);
+    const _ace   = parseFloat(m[pfx+'ace']    || 0);
+    const _df    = parseFloat(m[pfx+'df']     || 0);
+    const _bpF   = parseFloat(m[pfx+'bpFaced']  || 0);
+    const _bpS   = parseFloat(m[pfx+'bpSaved']  || 0);
+    const _bpC   = parseFloat(m[opfx+'bpFaced'] || 0);
+    const _bpS2  = parseFloat(m[opfx+'bpSaved'] || 0);
 
-    if (svpt > 0) {
-      firstTot += svpt;
-      firstIn  += fIn;
-      firstWon += fWon;
-      w1stOf   += fIn;
-      secondWon += sWon;
-      secondTot += Math.max(0, svpt - fIn);
-      aces     += ace;
-      dfs      += df;
-      bpFaced  += bpF;
-      bpSaved  += bpS;
-      bpChances+= bpC;
-      bpWon    += Math.max(0, bpC - bpC2);
-      total++;
+    f1   += _f1;
+    f1of += svpt;
+    f1won+= _f1won;
+    s1won+= _swon;
+    s1of += Math.max(0, svpt - _f1);
+    aces += _ace;
+    dfs  += _df;
+    bpF  += _bpF;
+    bpS  += _bpS;
+    bpC  += _bpC;
+    bpW  += Math.max(0, _bpC - _bpS2);
+    total++;
 
-      // Win first set dal punteggio
-      const score = m.score || m.result || '';
-      const sets = score.split(' ');
-      if (sets.length > 0) {
-        const s1 = sets[0].replace(/\(.*\)/,'');
-        const pts = s1.split('-');
-        if (pts.length === 2) {
-          const w = parseInt(pts[0]), l = parseInt(pts[1]);
-          if (!isNaN(w) && !isNaN(l)) {
-            if (isWinner && w > l) fsWon++;
-            if (!isWinner && l > w) fsWon++;
-          }
-        }
+    // first set
+    const score = m.score || m.result || '';
+    const s1 = score.split(' ')[0]?.replace(/\(.*\)/,'');
+    if (s1) {
+      const [w,l] = s1.split('-').map(Number);
+      if (!isNaN(w) && !isNaN(l)) {
+        if (isW && w > l) fsW++;
+        if (!isW && l > w) fsW++;
       }
     }
   });
@@ -168,124 +157,60 @@ function calcFromMatches(matches, playerName) {
   if (total < 2) return null;
 
   return {
-    first: firstTot > 0 ? +(firstIn/firstTot*100).toFixed(1) : null,
-    w1st:  w1stOf  > 0 ? +(firstWon/w1stOf*100).toFixed(1) : null,
-    w2nd:  secondTot > 0 ? +(secondWon/secondTot*100).toFixed(1) : null,
-    ace:   +(aces/total).toFixed(1),
-    df:    +(dfs/total).toFixed(1),
-    hold:  bpFaced > 0 ? +(bpSaved/bpFaced*100*0.25+75).toFixed(1) : null,
-    ret:   bpChances > 0 ? +(bpWon/bpChances*35).toFixed(1) : null,
-    wfs:   total > 0 ? +(fsWon/total*100).toFixed(1) : null,
+    first: f1of > 0  ? +((f1/f1of*100).toFixed(1))   : null,
+    w1st:  f1   > 0  ? +((f1won/f1*100).toFixed(1))   : null,
+    w2nd:  s1of > 0  ? +((s1won/s1of*100).toFixed(1)) : null,
+    ace:   +((aces/total).toFixed(1)),
+    df:    +((dfs/total).toFixed(1)),
+    hold:  bpF  > 0  ? +((bpS/bpF*100).toFixed(1))    : null,
+    ret:   bpC  > 0  ? +((bpW/bpC*100).toFixed(1))    : null,
+    wfs:   total > 0 ? +((fsW/total*100).toFixed(1))   : null,
     matches: total
   };
 }
 
-// Entry point principale
-async function getPlayerStats(name, surface, season) {
-  const key = process.env.RAPIDAPI_KEY || '';
-  if (!key) return { found: false, stats: null, source: 'RAPIDAPI_KEY mancante' };
-
-  try {
-    // 1. Trova il giocatore
-    const player = await findPlayer(name);
-    if (!player) {
-      console.log('Player not found:', name);
-      return { found: false, stats: null, source: null };
-    }
-
-    const pid = player.id || player.playerId;
-    console.log(`Player found: ${player.name} (${pid})`);
-
-    // 2. Prendi past matches filtrati per superficie e anno (più precisi)
-    const matches = await getPastMatches(pid, surface, season).catch(() => []);
-    console.log(`Filtered matches for ${name} on ${surface} in ${season}:`, matches.length);
-
-    let stats = null;
-    let source = '';
-
-    if (matches.length >= 3) {
-      stats = calcFromMatches(matches, name);
-      source = `Matchstat API — ${matches.length} partite su ${surface} ${season}`;
-    }
-
-    // 3. Se pochi match stagionali, prova career su superficie
-    if (!stats) {
-      const allMatches = await getPastMatches(pid, surface, null).catch(() => []);
-      console.log(`All-time matches for ${name} on ${surface}:`, allMatches.length);
-      if (allMatches.length >= 5) {
-        stats = calcFromMatches(allMatches, name);
-        source = `Matchstat API — ${allMatches.length} partite career su ${surface}`;
-      }
-    }
-
-    // 4. Fallback: surface-summary + match-stats API
-    if (!stats) {
-      const [surfSum, matchStats] = await Promise.all([
-        getSurfaceSummary(pid).catch(() => null),
-        getMatchStats(pid).catch(() => null)
-      ]);
-
-      stats = extractFromAPI(surfSum, matchStats, surface);
-      source = 'Matchstat API (aggregato)';
-    }
-
-    // 5. Applica medie ATP per campi ancora mancanti
-    const avg = ATP_AVG[surface] || ATP_AVG.clay;
-    if (stats) {
-      Object.keys(avg).forEach(k => {
-        if (!stats[k] || isNaN(stats[k])) stats[k] = avg[k];
-      });
-    } else {
-      stats = { ...avg };
-      source = 'Media ATP (dati non disponibili)';
-    }
-
-    return { found: true, stats, source, playerName: player.name };
-
-  } catch(e) {
-    console.error('getPlayerStats error:', e.message);
-    return { found: false, stats: null, source: e.message };
-  }
-}
-
-function extractFromAPI(surfSum, matchStats, surface) {
-  const stats = {};
-  const surfKey = surface === 'clay' ? 'clay' : surface === 'grass' ? 'grass' : 'hard';
-
-  // Prova surface summary
-  if (surfSum) {
-    const s = surfSum[surfKey] || surfSum[surfKey.charAt(0).toUpperCase()+surfKey.slice(1)] || surfSum;
-    const svc = s.serviceStats || s.serve || s;
-    const fi = parseFloat(svc.firstServeGm||0), fo = parseFloat(svc.firstServeOfGm||0);
-    const w1 = parseFloat(svc.winningOnFirstServeGm||0), w1o = parseFloat(svc.winningOnFirstServeOfGm||fi||0);
-    const w2 = parseFloat(svc.winningOnSecondServeGm||0), w2o = parseFloat(svc.winningOnSecondServeOfGm||(fo-fi)||0);
-    if (fo > 0) stats.first = +((fi/fo*100).toFixed(1));
-    if (w1o > 0) stats.w1st = +((w1/w1o*100).toFixed(1));
-    if (w2o > 0) stats.w2nd = +((w2/w2o*100).toFixed(1));
-    const ace = parseFloat(svc.acesGm||0), df = parseFloat(svc.doubleFaultsGm||0);
-    const games = parseFloat(svc.gamesPlayed||svc.games||0);
-    if (games > 0) { stats.ace = +((ace/games).toFixed(1)); stats.df = +((df/games).toFixed(1)); }
-  }
-
-  // Fallback match-stats
-  if (!stats.first && matchStats?.data?.serviceStats) {
-    const svc = matchStats.data.serviceStats;
-    const fi = parseFloat(svc.firstServeGm||0), fo = parseFloat(svc.firstServeOfGm||0);
-    const w1 = parseFloat(svc.winningOnFirstServeGm||0), w1o = parseFloat(svc.winningOnFirstServeOfGm||fi||0);
-    const w2 = parseFloat(svc.winningOnSecondServeGm||0), w2o = parseFloat(svc.winningOnSecondServeOfGm||(fo-fi)||0);
-    if (fo > 0) stats.first = +((fi/fo*100).toFixed(1));
-    if (w1o > 0) stats.w1st = +((w1/w1o*100).toFixed(1));
-    if (w2o > 0) stats.w2nd = +((w2/w2o*100).toFixed(1));
-  }
-
-  return Object.keys(stats).length > 0 ? stats : null;
-}
-
+// Media ATP per superficie (fallback per campi mancanti)
 const ATP_AVG = {
   clay:   { hold:78, first:61, w1st:69, w2nd:51, ret:22, ace:2.8, df:2.8, wfs:57 },
   hard:   { hold:82, first:62, w1st:72, w2nd:52, ret:20, ace:4.2, df:2.5, wfs:59 },
   grass:  { hold:85, first:63, w1st:75, w2nd:53, ret:17, ace:5.5, df:2.3, wfs:60 },
   indoor: { hold:83, first:63, w1st:73, w2nd:53, ret:19, ace:4.5, df:2.4, wfs:59 },
 };
+
+async function getPlayerStats(name, surface, season) {
+  if (!process.env.RAPIDAPI_KEY) {
+    return { found: false, stats: null, source: 'RAPIDAPI_KEY mancante su Render' };
+  }
+
+  try {
+    const player = await findPlayer(name);
+    if (!player) return { found: false, stats: null, source: null };
+
+    const pid = player.id || player.playerId;
+    let stats = await getStatsFromMatches(pid, name, surface, season).catch(e => {
+      console.error('Match stats error:', e.message);
+      return null;
+    });
+
+    // Applica fallback ATP avg per campi mancanti
+    const avg = ATP_AVG[surface] || ATP_AVG.clay;
+    if (!stats) stats = {};
+    Object.keys(avg).forEach(k => {
+      if (stats[k] === null || stats[k] === undefined || isNaN(stats[k])) {
+        stats[k] = avg[k];
+      }
+    });
+
+    const src = stats.matches 
+      ? `Matchstat API — ${stats.matches} partite su ${surface}${season?' '+season:''}`
+      : `Matchstat API (media ATP ${surface})`;
+
+    return { found: true, stats, source: src, playerName: player.name };
+
+  } catch(e) {
+    console.error('getPlayerStats error:', e.message);
+    return { found: false, stats: null, source: e.message };
+  }
+}
 
 module.exports = { getPlayerStats };

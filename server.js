@@ -102,6 +102,31 @@ http.createServer((req, res) => {
     return;
   }
 
+  // ── TEST ENDPOINT (raw API debug) ──────────────────────────────────────────
+  if (req.method === 'GET' && req.url.startsWith('/api/test')) {
+    const https2 = require('https');
+    const key = process.env.RAPIDAPI_KEY || '';
+    const name = decodeURIComponent(req.url.split('?name=')[1] || 'Lajovic');
+    const encoded = encodeURIComponent(name);
+    const testUrls = [
+      `https://tennis-api-atp-wta-itf.p.rapidapi.com/tennis/v2/atp/misc/search?q=${encoded}`,
+      `https://tennis-api-atp-wta-itf.p.rapidapi.com/tennis/v2/atp/player?pageSize=50&pageNo=1`,
+    ];
+    const results = [];
+    let pending = testUrls.length;
+    testUrls.forEach(url => {
+      https2.get(url, { headers: { 'X-RapidAPI-Key': key, 'X-RapidAPI-Host': 'tennis-api-atp-wta-itf.p.rapidapi.com' } }, r => {
+        let d = '';
+        r.on('data', c => d += c);
+        r.on('end', () => {
+          results.push({ url, status: r.statusCode, body: d.slice(0, 500) });
+          if (--pending === 0) { jsonResponse(res, 200, results); }
+        });
+      }).on('error', e => { results.push({ url, error: e.message }); if (--pending === 0) jsonResponse(res, 200, results); });
+    });
+    return;
+  }
+
   // ── HEALTH CHECK ───────────────────────────────────────────────────────────
   if (req.method === 'GET' && req.url === '/health') {
     jsonResponse(res, 200, { status: 'ok', version: '10', apiKey: !!process.env.ANTHROPIC_API_KEY });
@@ -124,3 +149,6 @@ http.createServer((req, res) => {
   console.log(`TennisAI Proxy v10 running on port ${PORT}`);
   console.log('API Key:', !!process.env.ANTHROPIC_API_KEY);
 });
+
+// TEMP: test endpoint to see raw API response
+if (req.method === 'GET' && req.url.startsWith('/api/test')) {
