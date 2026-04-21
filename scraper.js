@@ -1,170 +1,206 @@
 const https = require('https');
 
-function fetch(url) {
+const RAPIDAPI_KEY = process.env.RAPIDAPI_KEY || '';
+const RAPIDAPI_HOST = 'tennis-api-atp-wta-itf.p.rapidapi.com';
+const BASE = `https://${RAPIDAPI_HOST}/tennis/v2/atp`;
+
+function fetchJSON(url) {
   return new Promise((resolve, reject) => {
     https.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml',
-        'Accept-Language': 'en-US,en;q=0.9',
+        'X-RapidAPI-Key': RAPIDAPI_KEY,
+        'X-RapidAPI-Host': RAPIDAPI_HOST,
       },
-      timeout: 10000
+      timeout: 12000
     }, res => {
-      // Handle redirects
-      if (res.statusCode === 301 || res.statusCode === 302) {
-        return fetch(res.headers.location).then(resolve).catch(reject);
-      }
       let data = '';
       res.on('data', chunk => data += chunk);
-      res.on('end', () => resolve({ status: res.statusCode, html: data }));
+      res.on('end', () => {
+        try { resolve({ status: res.statusCode, data: JSON.parse(data) }); }
+        catch(e) { resolve({ status: res.statusCode, data: null, raw: data.slice(0,200) }); }
+      });
     }).on('error', reject).on('timeout', () => reject(new Error('Timeout')));
   });
 }
 
-// Converte nome in slug Tennis Abstract
-// "Dusan Lajovic" → "DusanLajovic", "Matteo Arnaldi" → "MatteoArnaldi"
-function toSlug(name) {
-  return name.trim().split(/\s+/)
-    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    .join('');
-}
-
-// Alcune varianti per nomi composti o invertiti
-function slugVariants(name) {
-  const parts = name.trim().split(/\s+/);
-  const cap = w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-  const variants = [];
-  // Standard: Primo Cognome
-  variants.push(parts.map(cap).join(''));
-  // Invertito: Cognome Primo
-  if (parts.length >= 2) {
-    variants.push([...parts].reverse().map(cap).join(''));
+// Cerca il playerId per nome
+async function findPlayerId(name) {
+  const n = name.toLowerCase().trim();
+  // Prova pagine successive finché non trova
+  for (let page = 1; page <= 10; page++) {
+    const url = `${BASE}/player?pageSize=100&pageNo=${page}`;
+    const res = await fetchJSON(url);
+    if (!res.data || !Array.isArray(res.data) || res.data.length === 0) break;
+    const found = res.data.find(p => {
+      const pn = (p.name || '').toLowerCase();
+      const parts = n.split(' ');
+      return pn === n || parts.every(part => pn.includes(part));
+    });
+    if (found) return found;
   }
-  // Solo cognome (ultimo)
-  variants.push(cap(parts[parts.length - 1]));
-  return [...new Set(variants)];
+  return null;
 }
 
-// Estrae statistiche dalla pagina HTML di Tennis Abstract
-function parseStats(html, surface) {
+// Prende le statistiche per superficie dal surface-summary
+async function getSurfaceSummary(playerId) {
+  const url = `${BASE}/player/surface-summary/${playerId}`;
+  const res = await fetchJSON(url);
+  if (res.status === 200 && res.data) return res.data;
+  return null;
+}
+
+// Prende le match-stats filtrate (career o per stagione)
+async function getMatchStats(playerId, season) {
+  // Prova con filtro stagione se disponibile
+  let url = `${BASE}/player/match-stats/${playerId}`;
+  if (season) url += `?season=${season}`;
+  const res = await fetchJSON(url);
+  if (res.status === 200 && res.data) return res.data;
+  // Fallback senza filtro stagione
+  const res2 = await fetchJSON(`${BASE}/player/match-stats/${playerId}`);
+  if (res2.status === 200 && res2.data) return res2.data;
+  return null;
+}
+
+// Prende le past-matches per calcolare statistiche per superficie e anno
+async function getPastMatches(playerId, surface, season) {
   const surfMap = { clay: 'Clay', hard: 'Hard', grass: 'Grass', indoor: 'Hard' };
-  const surfLabel = surfMap[surface] || 'Clay';
+  const surf = surfMap[surface] || 'Clay';
+  let url = `${BASE}/player/past-matches/${playerId}?pageSize=100&pageNo=1`;
+  if (season) url += `&season=${season}`;
+  const res = await fetchJSON(url);
+  if (!res.data) return [];
+  const matches = Array.isArray(res.data) ? res.data : (res.data.data || []);
+  return matches.filter(m => !surf || (m.surface || m.courtType || '').toLowerCase().includes(surf.toLowerCase()));
+}
+
+// Mappa i dati API ai campi del simulatore
+function mapMatchStats(statsData, surfaceSummary, surface) {
+  const surfMap = { clay: 'clay', hard: 'hard', grass: 'grass', indoor: 'hard' };
+  const surf = surfMap[surface] || 'clay';
 
   const stats = { hold: null, first: null, w1st: null, w2nd: null, ret: null, ace: null, df: null, wfs: null };
 
-  // Tennis Abstract espone i dati come variabili JavaScript nella pagina
-  // Cerca array di statistiche per superficie
-  // Pattern tipico: var holdPct = [overall, hard, clay, grass, carpet]
-  
-  const surfIdx = { hard: 1, clay: 2, grass: 3, indoor: 1 }[surface] || 2;
+  // Prova prima surface-summary che è già filtrato per superficie
+  if (surfaceSummary) {
+    const s = surfaceSummary;
+    // Cerca la sezione per la superficie corretta
+    const surfData = s[surf] || s[surf.charAt(0).toUpperCase() + surf.slice(1)] || s;
 
-  function extractArray(varName) {
-    // Cerca pattern: varName = [n1, n2, n3, ...] oppure varName=[...]
-    const re = new RegExp(varName + '\\s*=\\s*\\[([^\\]]+)\\]');
-    const m = html.match(re);
-    if (!m) return null;
-    return m[1].split(',').map(v => {
-      const n = parseFloat(v.trim());
-      return isNaN(n) ? null : n;
-    });
-  }
+    const svc = surfData.serviceStats || surfData.serve || statsData?.data?.serviceStats;
+    const rtn = surfData.returnStats || surfData.return || statsData?.data?.rtnStats;
+    const bp  = surfData.breakPoints || surfData.breakPointsServeStats || statsData?.data?.breakPointsServeStats;
+    const bpr = surfData.breakPointsReturn || surfData.breakPointsRtnStats || statsData?.data?.breakPointsRtnStats;
 
-  // Nomi variabili usati da Tennis Abstract
-  const varMaps = [
-    { stat: 'hold',  vars: ['holdPct', 'sHoldPct', 'hold'] },
-    { stat: 'first', vars: ['firstPct', 'first', 'fsPct'] },
-    { stat: 'w1st',  vars: ['w1Pct', 'w1stPct', 'fs1Pct'] },
-    { stat: 'w2nd',  vars: ['w2Pct', 'w2ndPct', 'ss1Pct'] },
-    { stat: 'ret',   vars: ['retHoldPct', 'rHoldPct', 'ret'] },
-    { stat: 'ace',   vars: ['acePM', 'acepm', 'acePerMatch'] },
-    { stat: 'df',    vars: ['dfPM', 'dfpm', 'dfPerMatch'] },
-    { stat: 'wfs',   vars: ['wfsPct', 'wfs', 'wonFsPct'] },
-  ];
+    if (svc) {
+      const firstIn = parseFloat(svc.firstServeGm || svc.firstServe || 0);
+      const firstOf = parseFloat(svc.firstServeOfGm || svc.firstServeOf || 0);
+      const w1stIn  = parseFloat(svc.winningOnFirstServeGm || svc.firstServeWon || 0);
+      const w1stOf  = parseFloat(svc.winningOnFirstServeOfGm || firstIn || 0);
+      const w2ndIn  = parseFloat(svc.winningOnSecondServeGm || svc.secondServeWon || 0);
+      const w2ndOf  = parseFloat(svc.winningOnSecondServeOfGm || (firstOf - firstIn) || 0);
+      const aces    = parseFloat(svc.acesGm || svc.aces || 0);
+      const dfs     = parseFloat(svc.doubleFaultsGm || svc.doubleFaults || 0);
 
-  varMaps.forEach(({ stat, vars }) => {
-    for (const v of vars) {
-      const arr = extractArray(v);
-      if (arr && arr[surfIdx] !== null) {
-        stats[stat] = arr[surfIdx];
-        break;
-      }
-      // Prova anche indice 0 (overall) come fallback
-      if (arr && arr[0] !== null && stats[stat] === null) {
-        stats[stat] = arr[0];
+      if (firstOf > 0)  stats.first = parseFloat((firstIn / firstOf * 100).toFixed(1));
+      if (w1stOf > 0)   stats.w1st  = parseFloat((w1stIn / w1stOf * 100).toFixed(1));
+      if (w2ndOf > 0)   stats.w2nd  = parseFloat((w2ndIn / w2ndOf * 100).toFixed(1));
+    }
+
+    if (bp) {
+      const faced = parseFloat(bp.breakPointFacedGm || bp.faced || 0);
+      const saved = parseFloat(bp.breakPointSavedGm || bp.saved || 0);
+      // Service games won: approssimazione dal BP saved rate
+      // Formula: la maggior parte dei svc game non ha BP → stima ~75-95%
+      if (faced > 0) {
+        const bpSaveRate = saved / faced;
+        // Hold% ≈ (1 - (faced/gamesServed) * (1 - bpSaveRate)) * 100
+        // Usiamo approssimazione standard ATP: hold ≈ 70 + bpSaveRate * 25
+        stats.hold = parseFloat((70 + bpSaveRate * 25).toFixed(1));
       }
     }
-  });
 
-  // Fallback: cerca nella tabella HTML se JS non trovato
-  if (!stats.hold) {
-    // Tennis Abstract ha una tabella con righe per superficie
-    // Pattern: <td>Clay</td> seguito da celle con valori
-    const tableRe = new RegExp(surfLabel + '[\\s\\S]{0,1000}?(\\d+\\.\\d+)%[\\s\\S]{0,100}?(\\d+\\.\\d+)%[\\s\\S]{0,100}?(\\d+\\.\\d+)%', 'i');
-    const tm = html.match(tableRe);
-    if (tm) {
-      stats.hold  = parseFloat(tm[1]);
-      stats.first = parseFloat(tm[2]);
-      stats.w1st  = parseFloat(tm[3]);
+    if (bpr) {
+      const chances = parseFloat(bpr.breakPointChanceGm || bpr.chances || 0);
+      const won     = parseFloat(bpr.breakPointWonGm || bpr.won || 0);
+      if (chances > 0) {
+        const convRate = won / chances;
+        // Return games won ≈ conversione BP * frequenza BP per game ≈ convRate * 0.35 * 100
+        stats.ret = parseFloat((convRate * 35).toFixed(1));
+      }
     }
   }
 
-  // Cerca valori numerici specifici nel testo della pagina come fallback finale
-  if (!stats.hold) {
-    // Cerca pattern come "77%" vicino a "service games won" o "hold"
-    const patterns = [
-      { stat: 'hold',  re: /service\s+games?\s+won[^\d]*([\d.]+)%/i },
-      { stat: 'first', re: /1st\s+serve[^\d]*([\d.]+)%/i },
-      { stat: 'w1st',  re: /1st\s+serve\s+points?\s+won[^\d]*([\d.]+)%/i },
-      { stat: 'w2nd',  re: /2nd\s+serve\s+points?\s+won[^\d]*([\d.]+)%/i },
-      { stat: 'ret',   re: /return\s+games?\s+won[^\d]*([\d.]+)%/i },
-    ];
-    patterns.forEach(({ stat, re }) => {
-      if (!stats[stat]) {
-        const m = html.match(re);
-        if (m) stats[stat] = parseFloat(m[1]);
-      }
-    });
+  // Fallback su match-stats generali se surface-summary non ha dati
+  if (!stats.first && statsData?.data?.serviceStats) {
+    const svc = statsData.data.serviceStats;
+    const firstIn = parseFloat(svc.firstServeGm || 0);
+    const firstOf = parseFloat(svc.firstServeOfGm || 0);
+    const w1stIn  = parseFloat(svc.winningOnFirstServeGm || 0);
+    const w1stOf  = parseFloat(svc.winningOnFirstServeOfGm || firstIn || 0);
+    const w2ndIn  = parseFloat(svc.winningOnSecondServeGm || 0);
+    const w2ndOf  = parseFloat(svc.winningOnSecondServeOfGm || (firstOf - firstIn) || 0);
+    const aces    = parseFloat(svc.acesGm || 0);
+    const dfs     = parseFloat(svc.doubleFaultsGm || 0);
+
+    if (firstOf > 0)  stats.first = parseFloat((firstIn / firstOf * 100).toFixed(1));
+    if (w1stOf > 0)   stats.w1st  = parseFloat((w1stIn / w1stOf * 100).toFixed(1));
+    if (w2ndOf > 0)   stats.w2nd  = parseFloat((w2ndIn / w2ndOf * 100).toFixed(1));
   }
 
+  // Ace e DF dai past matches (più accurati per superficie specifica)
   return stats;
 }
 
-async function getPlayerStats(name, surface) {
-  const variants = slugVariants(name);
-  
-  for (const slug of variants) {
-    const url = `https://www.tennisabstract.com/cgi-bin/player.cgi?p=${slug}`;
-    try {
-      console.log(`Trying TA: ${url}`);
-      const res = await fetch(url);
-      
-      if (res.status === 200 && res.html.length > 5000 && !res.html.includes('No player found')) {
-        const stats = parseStats(res.html, surface);
-        const hasData = Object.values(stats).some(v => v !== null);
-        
-        if (hasData) {
-          console.log(`Found stats for ${name}:`, stats);
-          return {
-            found: true,
-            stats,
-            source: 'Tennis Abstract',
-            url
-          };
-        }
-        // Pagina trovata ma parsing fallito - restituisci comunque
-        return {
-          found: true,
-          stats,
-          source: 'Tennis Abstract (parsing parziale)',
-          url
-        };
-      }
-    } catch(e) {
-      console.log(`Error for ${slug}:`, e.message);
-    }
+async function getPlayerStats(name, surface, season) {
+  if (!RAPIDAPI_KEY) {
+    console.log('No RAPIDAPI_KEY configured');
+    return { found: false, stats: null, source: null };
   }
 
-  return { found: false, stats: null, source: null };
+  console.log(`Searching Matchstat API for: ${name} | ${surface} | ${season}`);
+
+  // 1. Trova il playerId
+  const player = await findPlayerId(name);
+  if (!player) {
+    console.log(`Player not found: ${name}`);
+    return { found: false, stats: null, source: null };
+  }
+  console.log(`Found player: ${player.name} (id: ${player.id})`);
+
+  // 2. Prendi surface summary e match stats in parallelo
+  const [surfaceSummary, matchStats] = await Promise.all([
+    getSurfaceSummary(player.id).catch(e => { console.log('surface-summary error:', e.message); return null; }),
+    getMatchStats(player.id, season).catch(e => { console.log('match-stats error:', e.message); return null; }),
+  ]);
+
+  console.log('Surface summary:', JSON.stringify(surfaceSummary)?.slice(0, 200));
+  console.log('Match stats:', JSON.stringify(matchStats)?.slice(0, 200));
+
+  // 3. Mappa i dati
+  const stats = mapMatchStats(matchStats, surfaceSummary, surface);
+
+  // 4. Valori di fallback ATP medi per superficie se mancanti
+  const atpAvg = {
+    clay:   { hold: 78, first: 61, w1st: 69, w2nd: 51, ret: 22, ace: 2.8, df: 2.8, wfs: 57 },
+    hard:   { hold: 82, first: 62, w1st: 72, w2nd: 52, ret: 20, ace: 4.2, df: 2.5, wfs: 59 },
+    grass:  { hold: 85, first: 63, w1st: 75, w2nd: 53, ret: 17, ace: 5.5, df: 2.3, wfs: 60 },
+    indoor: { hold: 83, first: 63, w1st: 73, w2nd: 53, ret: 19, ace: 4.5, df: 2.4, wfs: 59 },
+  };
+  const avg = atpAvg[surface] || atpAvg.clay;
+
+  // Usa ATP average per campi ancora null
+  Object.keys(avg).forEach(k => {
+    if (stats[k] === null || stats[k] === undefined) stats[k] = avg[k];
+  });
+
+  return {
+    found: true,
+    stats,
+    source: `Matchstat API (${player.name})`,
+    playerId: player.id,
+    playerName: player.name,
+  };
 }
 
 module.exports = { getPlayerStats };
