@@ -372,3 +372,188 @@ async function searchStats(){
 }
 
 
+// ── ANALISI BASATA SU DATI REALI ────────────────────────────────────────────
+const SURFACE_WEIGHTS = {
+  clay:   {hold:1.5, first:0.8, w1st:1.3, w2nd:1.6, ret:2.0, wfs:1.2, ace:0.4, df:0.6},
+  hard:   {hold:1.8, first:1.0, w1st:1.5, w2nd:1.4, ret:1.6, wfs:1.1, ace:0.7, df:0.5},
+  grass:  {hold:2.2, first:1.2, w1st:1.8, w2nd:1.2, ret:1.3, wfs:1.0, ace:1.0, df:0.4},
+  indoor: {hold:2.0, first:1.1, w1st:1.6, w2nd:1.3, ret:1.4, wfs:1.0, ace:0.8, df:0.4},
+};
+const ATP_AVG = {hold:80, first:60, w1st:71, w2nd:52, ret:22, wfs:58, ace:3.5, df:2.5};
+
+function calcDominance(stats, surface){
+  const w = SURFACE_WEIGHTS[surface] || SURFACE_WEIGHTS.clay;
+  let score = 0;
+  score += w.hold  * (stats.hold  - ATP_AVG.hold)  / 10;
+  score += w.first * (stats.first - ATP_AVG.first) / 10;
+  score += w.w1st  * (stats.w1st  - ATP_AVG.w1st)  / 10;
+  score += w.w2nd  * (stats.w2nd  - ATP_AVG.w2nd)  / 10;
+  score += w.ret   * (stats.ret   - ATP_AVG.ret)   / 5;
+  score += w.wfs   * (stats.wfs   - ATP_AVG.wfs)   / 10;
+  score -= w.df    * (stats.df    - ATP_AVG.df)     / 2;
+  score += w.ace   * (stats.ace   - ATP_AVG.ace)    / 2;
+  return score;
+}
+
+function winProb(ds1, ds2){
+  const k=2.5, base=50;
+  const s1=Math.pow(Math.max(0.1,base+ds1),k);
+  const s2=Math.pow(Math.max(0.1,base+ds2),k);
+  return s1/(s1+s2);
+}
+
+function estimateGames(p1,p2,winP1){
+  const holdAvg=(p1.hold+p2.hold)/2;
+  const retAvg=(p1.ret+p2.ret)/2;
+  const baseGames=18+(holdAvg-78)*0.15-retAvg*0.1;
+  const balance=1-Math.abs(winP1-0.5)*2;
+  return Math.round(baseGames+balance*2);
+}
+
+function runAnalysis(){
+  const surfVal=document.getElementById('surface').value;
+  const bo5=document.getElementById('format').value==='bo5';
+  const p1={
+    hold:gn('p1hold',77),first:gn('p1first',59),w1st:gn('p1w1st',68),
+    w2nd:gn('p1w2nd',51),wfs:gn('p1wfs',55),ret:gn('p1ret',20),
+    ace:gn('p1ace',3),df:gn('p1df',2.5)
+  };
+  const p2={
+    hold:gn('p2hold',80),first:gn('p2first',63),w1st:gn('p2w1st',72),
+    w2nd:gn('p2w2nd',55),wfs:gn('p2wfs',60),ret:gn('p2ret',23),
+    ace:gn('p2ace',4),df:gn('p2df',2)
+  };
+  const odd1=gn('odd1',0),odd2=gn('odd2',0);
+  const ouOdds=[gn('ou195',0),gn('ou205',0),gn('ou215',0),gn('ou225',0)];
+  const ouLines=[19.5,20.5,21.5,22.5];
+
+  const ds1=calcDominance(p1,surfVal);
+  const ds2=calcDominance(p2,surfVal);
+  const wP1=winProb(ds1,ds2);
+  const wP2=1-wP1;
+  const estGames=estimateGames(p1,p2,wP1);
+
+  function ouProb(line,est){const z=(est-line)/3;return 1/(1+Math.exp(-z*1.5));}
+  const ouProbs=ouLines.map(l=>ouProb(l,estGames));
+  const wfsAdj=(p1.wfs/100)/((p1.wfs+p2.wfs)/100);
+
+  renderResults({
+    p1,p2,wP1,wP2,ds1,ds2,estGames,ouProbs,ouLines,ouOdds,odd1,odd2,surfVal,bo5,wfsAdj,
+    p1name:document.getElementById('search-p1').value.trim()||'Giocatore 1',
+    p2name:document.getElementById('search-p2').value.trim()||'Giocatore 2',
+  });
+  showTab('results');
+}
+
+function renderResults(r){
+  const sm={hard:'🏟 Cemento',clay:'🟫 Terra',grass:'🌿 Erba',indoor:'🏢 Indoor'};
+  const fav=r.wP1>=r.wP2?'P1':'P2';
+  const favName=r.wP1>=r.wP2?r.p1name:r.p2name;
+  const favW=Math.max(r.wP1,r.wP2);
+  const gap=Math.abs(r.wP1-r.wP2);
+
+  const ini1=r.p1name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  const ini2=r.p2name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('r-av1').textContent=ini1;
+  document.getElementById('r-av2').textContent=ini2;
+  document.getElementById('r-n1').textContent=r.p1name;
+  document.getElementById('r-n2').textContent=r.p2name;
+  document.getElementById('r-n1b').textContent=r.p1name;
+  document.getElementById('r-n2b').textContent=r.p2name;
+  document.getElementById('h-meta').innerHTML=
+    `<span class="h-chip">${sm[r.surfVal]||'Terra'}</span><div class="h-dot"></div><span class="h-chip">${r.bo5?'Best of 5':'Best of 3'}</span><div class="h-dot"></div><span class="h-chip">Analisi statistica</span>`;
+
+  document.getElementById('wf1').style.width=p1d(r.wP1);
+  document.getElementById('wf2').style.width=p1d(r.wP2);
+  document.getElementById('wp1').textContent=p1d(r.wP1);
+  document.getElementById('wp2').textContent=p1d(r.wP2);
+
+  const consTxt=gap>0.2?`${favName} ha un vantaggio netto basato sulle statistiche reali. Il divario è significativo e consistente su più parametri chiave.`
+    :gap>0.1?`${favName} parte leggermente favorito. Il vantaggio statistico è reale ma il match è aperto.`
+    :`Le statistiche indicano un match molto equilibrato. Piccole variazioni nella forma del giorno possono essere decisive.`;
+  document.getElementById('cons-txt').textContent=consTxt;
+
+  const stats=[
+    {id:'hold',label:'Tenuta servizio %',higher:'better'},
+    {id:'first',label:'1° servizio in %',higher:'better'},
+    {id:'w1st',label:'Punti su 1° serv %',higher:'better'},
+    {id:'w2nd',label:'Punti su 2° serv %',higher:'better'},
+    {id:'wfs',label:'Win first set %',higher:'better'},
+    {id:'ret',label:'Return game vinti %',higher:'better'},
+    {id:'ace',label:'Ace per match',higher:'better'},
+    {id:'df',label:'Doppi falli',higher:'lower'},
+  ];
+  let compHtml='';
+  stats.forEach(s=>{
+    const v1=r.p1[s.id],v2=r.p2[s.id];
+    const sum=Math.abs(v1)+Math.abs(v2);
+    const bar1=sum>0?(v1/sum*100):50;
+    const bar2=sum>0?(v2/sum*100):50;
+    const p1wins=s.higher==='better'?v1>v2:v1<v2;
+    const p2wins=s.higher==='better'?v2>v1:v2<v1;
+    compHtml+=`<div class="stat-comp-row">
+      <div style="text-align:right;"><span class="stat-comp-val ${p1wins?'win':''}" style="color:${p1wins?'var(--p1)':'var(--muted2)'};">${v1.toFixed(1)}${s.id!=='ace'&&s.id!=='df'?'%':''}</span></div>
+      <div><div class="stat-comp-label" style="margin-bottom:4px;">${s.label}</div>
+        <div class="stat-bar-wrap">
+          <div class="stat-bar-p1" style="width:${bar1.toFixed(0)}%;opacity:${p1wins?1:0.4};"></div>
+          <div class="stat-bar-p2" style="width:${bar2.toFixed(0)}%;opacity:${p2wins?1:0.4};"></div>
+        </div>
+      </div>
+      <div style="text-align:left;"><span class="stat-comp-val ${p2wins?'win':''}" style="color:${p2wins?'var(--p2)':'var(--muted2)'};">${v2.toFixed(1)}${s.id!=='ace'&&s.id!=='df'?'%':''}</span></div>
+    </div>`;
+  });
+  document.getElementById('stat-comp-grid').innerHTML=compHtml;
+
+  const ouBestIdx=r.ouProbs.map((p,i)=>({p,i,d:Math.abs(p-0.5)})).sort((a,b)=>b.d-a.d)[0];
+  const ouBestDir=ouBestIdx.p>0.5?'Over':'Under';
+  const ouBestLine=r.ouLines[ouBestIdx.i];
+  const ouBestPct=ouBestIdx.p>0.5?ouBestIdx.p:1-ouBestIdx.p;
+  const ouBestOdd=r.ouOdds[ouBestIdx.i];
+  const confFav=gap>0.2?'alta':gap>0.1?'media':'bassa';
+  const mercats=[
+    {icon:'🏆',lbl:'Vincitore Match',conf:confFav,val:favName,odd:fav==='P1'?r.odd1:r.odd2},
+    {icon:'📊',lbl:`${ouBestDir} ${ouBestLine} Games`,conf:Math.abs(ouBestIdx.p-0.5)>0.15?'alta':'media',val:`${p0(ouBestPct)} prob.`,odd:ouBestOdd},
+    {icon:'🏅',lbl:'Win First Set',conf:'media',val:p0(r.wP1>=r.wP2?r.wfsAdj:1-r.wfsAdj)+' '+favName,odd:0},
+    {icon:'📈',lbl:'Dominance Score',conf:'alta',val:`${r.p1name.split(' ')[0]} ${r.ds1>0?'+':''}${r.ds1.toFixed(1)} vs ${r.ds2>0?'+':''}${r.ds2.toFixed(1)}`,odd:0},
+    {icon:'🎾',lbl:'Game totali stimati',conf:'media',val:`~${r.estGames} game`,odd:0},
+  ];
+  document.getElementById('merc-grid').innerHTML=mercats.map(m=>`
+    <div class="merc">
+      <div class="merc-top"><span class="merc-lbl">${m.icon} ${m.lbl}</span><span class="badge ${m.conf}">${m.conf.toUpperCase()}</span></div>
+      <div class="merc-val">${m.val}</div>
+      ${m.odd>0?`<div class="merc-odd">@${m.odd.toFixed(2)}</div>`:''}
+    </div>`).join('');
+
+  const vbs=[];
+  if(r.odd1>0){const imp=1/r.odd1,e=r.wP1-imp;if(e>=0.03)vbs.push({name:r.p1name+' vince',pAI:r.wP1,pBook:imp,edge:e,odd:r.odd1});}
+  if(r.odd2>0){const imp=1/r.odd2,e=r.wP2-imp;if(e>=0.03)vbs.push({name:r.p2name+' vince',pAI:r.wP2,pBook:imp,edge:e,odd:r.odd2});}
+  r.ouLines.forEach((line,i)=>{const odd=r.ouOdds[i];if(odd>0){const imp=1/odd,e=r.ouProbs[i]-imp;if(e>=0.03)vbs.push({name:`Over ${line} Games`,pAI:r.ouProbs[i],pBook:imp,edge:e,odd});}});
+  document.getElementById('vb-cnt').textContent=vbs.length;
+  if(vbs.length){
+    document.getElementById('vb-section').style.display='block';
+    document.getElementById('vb-grid').innerHTML=vbs.map(v=>`
+      <div class="vb">
+        <div class="vb-top"><div class="vb-name">${v.name}</div><span class="badge alta">ALTA</span></div>
+        <div class="vb-probs">Prob AI: <strong>${p0(v.pAI)}</strong> · Prob Book: <strong>${p0(v.pBook)}</strong></div>
+        <div class="vb-bottom"><div><div class="vb-edge">+${(v.edge*100).toFixed(1)}%</div><div class="vb-bet">3-5% bankroll</div></div><div class="vb-odd">@${v.odd.toFixed(2)}</div></div>
+      </div>`).join('');
+  } else document.getElementById('vb-section').style.display='none';
+
+  const sT={clay:'La terra battuta favorisce il return e la resistenza fisica.',hard:'Il cemento bilancia servizio e risposta.',grass:"L'erba esalta il servizio e premia chi ha più ace.",indoor:'Il campo coperto veloce premia il servizio.'};
+  const keyAdv=stats.filter(s=>{const v1=r.p1[s.id],v2=r.p2[s.id];const p1w=s.higher==='better'?v1>v2:v1<v2;return(p1w&&fav==='P1')||(!p1w&&fav==='P2');}).slice(0,2).map(s=>s.label).join(' e ');
+
+  document.getElementById('rep-content').innerHTML=`
+    <div class="rep-h">Il Verdetto</div>
+    <div class="rep-p">${gap>0.2?`L'analisi statistica indica un vantaggio netto per <strong>${favName}</strong> (${p1d(favW)}). Dominance Score: ${r.ds1>r.ds2?'+'+r.ds1.toFixed(1):'+'+r.ds2.toFixed(1)} vs ${r.ds1>r.ds2?r.ds2.toFixed(1):r.ds1.toFixed(1)}.`:gap>0.1?`<strong>${favName}</strong> ha un margine statistico reale (${p1d(favW)}) ma il match è aperto.`:`Match estremamente equilibrato — soli ${(gap*100).toFixed(1)}pp di differenza.`}</div>
+    <div class="rep-div"></div>
+    <div class="rep-h">I Parametri Chiave</div>
+    <div class="rep-p">Il vantaggio di <strong>${favName}</strong> si basa su <strong>${keyAdv||'un insieme equilibrato di parametri'}</strong>. ${r.p1.ret>r.p2.ret?`${r.p1name} è più efficace in risposta (${r.p1.ret.toFixed(1)}% vs ${r.p2.ret.toFixed(1)}%).`:`${r.p2name} strappa il break più spesso (${r.p2.ret.toFixed(1)}% vs ${r.p1.ret.toFixed(1)}%).`}</div>
+    <div class="rep-div"></div>
+    <div class="rep-h">La Superficie</div>
+    <div class="rep-p">${sT[r.surfVal]||sT.clay}</div>
+    <div class="rep-div"></div>
+    <div class="rep-h">I Totali</div>
+    <div class="rep-p">Stimati <strong>~${r.estGames} game totali</strong>. ${ouBestIdx.p>0.65?`${ouBestDir} ${ouBestLine} al ${p0(ouBestPct)} — segnale forte.`:ouBestIdx.p<0.35?`${ouBestDir} ${ouBestLine} al ${p0(ouBestPct)} — segnale forte.`:'Totali equilibrati — segnale debole.'}</div>
+    ${vbs.length?`<div class="rep-div"></div><div class="rep-h">Value Bets</div><div class="rep-p">Rilevati <strong>${vbs.length} value bet</strong> con edge positivo ≥3% rispetto alle quote inserite.</div>`:''}`;
+}
+
