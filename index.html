@@ -127,6 +127,32 @@ select option{background:var(--card2);}
 @keyframes fu{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
 .an{animation:fu .35s ease forwards;opacity:0;}
 .d1{animation-delay:.05s}.d2{animation-delay:.1s}.d3{animation-delay:.15s}.d4{animation-delay:.2s}.d5{animation-delay:.25s}
+/* STORICO */
+#page-storico{display:none;}
+.stor-empty{text-align:center;padding:48px 20px;color:var(--muted);font-size:13px;}
+.stor-empty svg{opacity:.3;margin-bottom:12px;}
+.stor-list{display:flex;flex-direction:column;gap:8px;}
+.stor-item{background:var(--card);border:1px solid var(--border);border-radius:var(--r2);padding:16px 18px;cursor:pointer;transition:border-color .15s;}
+.stor-item:hover{border-color:var(--border2);}
+.stor-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.stor-match{font-size:15px;font-weight:600;}
+.stor-date{font-size:11px;color:var(--muted);font-family:var(--mono);}
+.stor-meta{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;}
+.stor-chip{background:var(--card2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;font-size:11px;color:var(--muted2);}
+.stor-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+.stor-stat{background:var(--card2);border-radius:6px;padding:8px 10px;text-align:center;}
+.stor-stat-lbl{font-size:9px;color:var(--muted);font-family:var(--mono);margin-bottom:3px;}
+.stor-stat-val{font-size:14px;font-weight:700;font-family:var(--mono);}
+.stor-rec{font-size:13px;font-weight:700;padding:10px 14px;border-radius:var(--r);margin-top:10px;border:1px solid;}
+.stor-rec.fav{background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.25);color:var(--green);}
+.stor-rec.dog{background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.25);color:var(--amber);}
+.stor-del{background:none;border:none;color:var(--muted);cursor:pointer;padding:4px 8px;border-radius:4px;font-size:12px;transition:color .15s;}
+.stor-del:hover{color:var(--red);}
+.stor-filters{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.stor-filter{padding:5px 12px;border-radius:6px;font-size:12px;font-weight:500;cursor:pointer;border:1px solid var(--border2);background:var(--card2);color:var(--muted);transition:all .12s;}
+.stor-filter.on{background:var(--green2);border-color:rgba(16,185,129,.4);color:var(--green);}
+.save-btn{display:flex;align-items:center;gap:8px;background:linear-gradient(135deg,rgba(16,185,129,.2),rgba(0,184,212,.15));border:1px solid rgba(16,185,129,.3);border-radius:8px;padding:10px 16px;cursor:pointer;font-family:var(--sans);font-size:13px;font-weight:600;color:var(--green);margin-top:10px;width:100%;justify-content:center;transition:opacity .15s;}
+.save-btn:hover{opacity:.85;}
 </style>
 </head>
 <body>
@@ -138,7 +164,7 @@ select option{background:var(--card2);}
     </svg>
     StrikeOdds
   </div>
-  <div class="nav-links"><div class="nav-a on">Analisi</div><div class="nav-a">Storico</div></div>
+  <div class="nav-links"><div class="nav-a on" id="nav-analisi" onclick="navGo('analisi')">Analisi</div><div class="nav-a" id="nav-storico" onclick="navGo('storico')">Storico</div></div>
   <div class="ai-tag">⚡ AI POWERED</div>
 </nav>
 <div class="page">
@@ -285,7 +311,25 @@ select option{background:var(--card2);}
       <div id="rep-content"></div>
     </div>
 
-    <button class="run sec" onclick="showTab('input')" style="margin-top:4px;">← Modifica dati</button>
+    <button class="save-btn" id="save-btn" onclick="saveToStorico()" style="display:none;">
+      💾 Salva pronostico nello Storico
+    </button>
+    <button class="run sec" onclick="showTab('input')" style="margin-top:8px;">← Modifica dati</button>
+  </div>
+
+  <!-- STORICO PAGE -->
+  <div id="page-storico">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:18px;font-weight:700;">📋 Storico Pronostici</div>
+      <button onclick="clearStorico()" style="background:none;border:1px solid var(--border2);border-radius:6px;color:var(--muted);font-size:11px;font-family:var(--mono);padding:5px 12px;cursor:pointer;">Svuota tutto</button>
+    </div>
+    <div class="stor-filters">
+      <span class="stor-filter on" onclick="filterStorico('all',this)">Tutti</span>
+      <span class="stor-filter" onclick="filterStorico('clay',this)">🟫 Terra</span>
+      <span class="stor-filter" onclick="filterStorico('hard',this)">🏟 Cemento</span>
+      <span class="stor-filter" onclick="filterStorico('grass',this)">🌿 Erba</span>
+    </div>
+    <div id="storico-list"></div>
   </div>
 </div>
 
@@ -475,6 +519,9 @@ function runAnalysis(){
 }
 
 function renderResults(r){
+  _lastResult = r;
+  var saveBtn = document.getElementById('save-btn');
+  if (saveBtn) saveBtn.style.display = 'flex';
   const sm={hard:'🏟 Cemento',clay:'🟫 Terra',grass:'🌿 Erba',indoor:'🏢 Indoor'};
   const fav=r.wP1>=r.wP2?'P1':'P2';
   const favName=r.wP1>=r.wP2?r.p1name:r.p2name;
@@ -590,6 +637,160 @@ function renderResults(r){
     <div class="rep-h">I Totali</div>
     <div class="rep-p">Stimati <strong>~${r.estGames} game totali</strong>. ${ouBestIdx.p>0.65?`${ouBestDir} ${ouBestLine} al ${p0(ouBestPct)} — segnale forte.`:ouBestIdx.p<0.35?`${ouBestDir} ${ouBestLine} al ${p0(ouBestPct)} — segnale forte.`:'Totali equilibrati — segnale debole.'}</div>
     ${vbs.length?`<div class="rep-div"></div><div class="rep-h">Value Bets</div><div class="rep-p">Rilevati <strong>${vbs.length} value bet</strong> con edge positivo ≥3% rispetto alle quote inserite.</div>`:''}`;
+}
+
+// ── STORICO ──────────────────────────────────────────────────────────────────
+var _lastResult = null;
+
+function navGo(page) {
+  document.querySelectorAll('.nav-a').forEach(function(n) { n.classList.remove('on'); });
+  document.getElementById('nav-' + page).classList.add('on');
+  var isStorico = page === 'storico';
+  document.querySelector('.page > .tab-row').style.display = isStorico ? 'none' : '';
+  document.getElementById('panel-input').style.display = 'none';
+  document.getElementById('panel-results').style.display = 'none';
+  document.getElementById('page-storico').style.display = isStorico ? 'block' : 'none';
+  if (isStorico) renderStorico();
+  else {
+    document.querySelector('.page > .tab-row').style.display = '';
+    showTab('input');
+  }
+}
+
+function saveToStorico() {
+  if (!_lastResult) return;
+  var r = _lastResult;
+  var surfMap = {hard:'Cemento', clay:'Terra', grass:'Erba', indoor:'Indoor'};
+  
+  // Determine best recommendation
+  var fav = r.wP1 >= r.wP2 ? r.p1name : r.p2name;
+  var favW = Math.max(r.wP1, r.wP2);
+  var gap = Math.abs(r.wP1 - r.wP2);
+  var conf = gap > 0.2 ? 'Alta' : gap > 0.1 ? 'Media' : 'Bassa';
+  
+  // Best value bet
+  var vbs = [];
+  if (r.odd1 > 0) { var imp=1/r.odd1, e=r.wP1-imp; if(e>=0.03) vbs.push({name:r.p1name+' vince', edge:e, odd:r.odd1}); }
+  if (r.odd2 > 0) { var imp2=1/r.odd2, e2=r.wP2-imp2; if(e2>=0.03) vbs.push({name:r.p2name+' vince', edge:e2, odd:r.odd2}); }
+  r.ouLines.forEach(function(line, i) {
+    var odd = r.ouOdds[i];
+    if (odd > 0) { var imp3=1/odd, e3=r.ouProbs[i]-imp3; if(e3>=0.03) vbs.push({name:'Over '+line+' Games', edge:e3, odd:odd}); }
+  });
+  vbs.sort(function(a,b){return b.edge-a.edge;});
+  var bestVB = vbs[0] || null;
+  
+  // Main recommendation text
+  var recText = '🏆 ' + fav + ' vince';
+  if (bestVB && bestVB.edge > 0.05) {
+    recText += ' + 💰 ' + bestVB.name + ' @' + bestVB.odd.toFixed(2);
+  }
+
+  var entry = {
+    id: Date.now(),
+    date: new Date().toLocaleDateString('it-IT', {day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}),
+    p1name: r.p1name,
+    p2name: r.p2name,
+    surface: r.surfVal,
+    surfLabel: surfMap[r.surfVal] || r.surfVal,
+    bo5: r.bo5,
+    wP1: r.wP1,
+    wP2: r.wP2,
+    ds1: r.ds1,
+    ds2: r.ds2,
+    fav: fav,
+    favW: favW,
+    conf: conf,
+    odd1: r.odd1,
+    odd2: r.odd2,
+    estGames: r.estGames,
+    recText: recText,
+    bestVB: bestVB,
+    vbCount: vbs.length,
+    p1: r.p1,
+    p2: r.p2
+  };
+
+  var stor = getStorico();
+  stor.unshift(entry);
+  if (stor.length > 100) stor = stor.slice(0, 100);
+  localStorage.setItem('strikeodds_storico', JSON.stringify(stor));
+  
+  // Feedback
+  var btn = document.getElementById('save-btn');
+  btn.innerHTML = '✓ Salvato!';
+  btn.style.background = 'linear-gradient(135deg,rgba(16,185,129,.3),rgba(0,184,212,.25))';
+  setTimeout(function() {
+    btn.innerHTML = '💾 Salva pronostico nello Storico';
+    btn.style.background = '';
+  }, 2000);
+}
+
+function getStorico() {
+  try { return JSON.parse(localStorage.getItem('strikeodds_storico') || '[]'); }
+  catch(e) { return []; }
+}
+
+var _storFilter = 'all';
+
+function filterStorico(f, el) {
+  _storFilter = f;
+  document.querySelectorAll('.stor-filter').forEach(function(x) { x.classList.remove('on'); });
+  el.classList.add('on');
+  renderStorico();
+}
+
+function renderStorico() {
+  var stor = getStorico();
+  if (_storFilter !== 'all') {
+    stor = stor.filter(function(e) { return e.surface === _storFilter; });
+  }
+  var el = document.getElementById('storico-list');
+  if (!el) return;
+  if (stor.length === 0) {
+    el.innerHTML = '<div class="stor-empty"><svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg><div>Nessun pronostico salvato</div><div style="font-size:11px;margin-top:6px;">Analizza un match e clicca "Salva nello Storico"</div></div>';
+    return;
+  }
+  
+  var surfEmoji = {hard:'🏟', clay:'🟫', grass:'🌿', indoor:'🏢'};
+  el.innerHTML = '<div class="stor-list">' + stor.map(function(e) {
+    var favCol = e.wP1 >= e.wP2 ? 'var(--p1)' : 'var(--p2)';
+    var confBadge = e.conf === 'Alta' ? 'alta' : e.conf === 'Media' ? 'media' : 'bassa';
+    return '<div class="stor-item">' +
+      '<div class="stor-header">' +
+        '<div class="stor-match">' + e.p1name + ' <span style="color:var(--muted);font-weight:400;">vs</span> ' + e.p2name + '</div>' +
+        '<div style="display:flex;align-items:center;gap:8px;">' +
+          '<span class="stor-date">' + e.date + '</span>' +
+          '<button class="stor-del" onclick="deleteStorico(' + e.id + ')">✕</button>' +
+        '</div>' +
+      '</div>' +
+      '<div class="stor-meta">' +
+        '<span class="stor-chip">' + (surfEmoji[e.surface]||'') + ' ' + e.surfLabel + '</span>' +
+        '<span class="stor-chip">' + (e.bo5 ? 'Best of 5' : 'Best of 3') + '</span>' +
+        '<span class="badge ' + confBadge + '">' + e.conf.toUpperCase() + '</span>' +
+        (e.odd1 > 0 ? '<span class="stor-chip">@' + e.odd1.toFixed(2) + ' / @' + e.odd2.toFixed(2) + '</span>' : '') +
+      '</div>' +
+      '<div class="stor-grid">' +
+        '<div class="stor-stat"><div class="stor-stat-lbl">Prob ' + e.p1name.split(' ')[0] + '</div><div class="stor-stat-val" style="color:var(--p1);">' + (e.wP1*100).toFixed(0) + '%</div></div>' +
+        '<div class="stor-stat"><div class="stor-stat-lbl">DS Gap</div><div class="stor-stat-val">' + (e.ds1 - e.ds2).toFixed(1) + '</div></div>' +
+        '<div class="stor-stat"><div class="stor-stat-lbl">~Games</div><div class="stor-stat-val">' + (e.estGames||'—') + '</div></div>' +
+      '</div>' +
+      '<div class="stor-rec ' + (e.wP1>=e.wP2?'fav':'dog') + '">' + e.recText + '</div>' +
+      (e.bestVB ? '<div style="font-size:11px;color:var(--green);font-family:var(--mono);margin-top:6px;">💰 Value bet: +' + (e.bestVB.edge*100).toFixed(1) + '% edge su ' + e.bestVB.name + '</div>' : '') +
+    '</div>';
+  }).join('') + '</div>';
+}
+
+function deleteStorico(id) {
+  var stor = getStorico().filter(function(e) { return e.id !== id; });
+  localStorage.setItem('strikeodds_storico', JSON.stringify(stor));
+  renderStorico();
+}
+
+function clearStorico() {
+  if (confirm('Eliminare tutti i pronostici salvati?')) {
+    localStorage.removeItem('strikeodds_storico');
+    renderStorico();
+  }
 }
 </script>
 </body>
