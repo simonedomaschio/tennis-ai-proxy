@@ -566,6 +566,11 @@ function runAnalysis(){
   const p1formaPct = p1hasForma ? p1fw/(p1fw+p1fl) : 0.5;
   const p2formaPct = p2hasForma ? p2fw/(p2fw+p2fl) : 0.5;
   // H2H
+  const h2h1b = gn('h2h1', -1);
+  const h2h2b = gn('h2h2', -1);
+  const hasH2H = h2h1b >= 0 && h2h2b >= 0 && (h2h1b + h2h2b) > 0;
+  const h2hTotB = hasH2H ? h2h1b + h2h2b : 0;
+  const h2hPctB = hasH2H ? h2h1b / h2hTotB : 0.5;
 
   const odd1=gn('odd1',0),odd2=gn('odd2',0);
   const ouOdds=[gn('ou195',0),gn('ou205',0),gn('ou215',0),gn('ou225',0)];
@@ -584,9 +589,10 @@ function runAnalysis(){
 
   // Correzione H2H (peso 10% sul risultato finale)
   let h2hCorr=0;
-  if(hasH2H){
-    const h2hDiff = h2hPct - 0.5; // -0.5 a +0.5
-    h2hCorr = h2hDiff * 0.10; // max ±5%
+  if(hasH2H && h2hTotB >= 2){
+    const h2hDiff = h2hPctB - 0.5;
+    const h2hWeight = Math.min(1, h2hTotB / 5);
+    h2hCorr = h2hDiff * 0.12 * h2hWeight;
   }
 
   const wP1=Math.min(0.97,Math.max(0.03, wP1base + formaCorr + h2hCorr));
@@ -611,7 +617,7 @@ function runAnalysis(){
   }
   renderResults({
     p1,p2,wP1:wP1adj,wP2:wP2adj,ds1,ds2,estGames,ouProbs,ouLines,ouOdds,odd1,odd2,surfVal,bo5,wfsAdj,
-    p1formw,p2formw,formTot,h2hp1,h2hp2,h2hTot,h2hPct,
+    p1fw,p1fl,p2fw,p2fl,h2hp1:h2h1b,h2hp2:h2h2b,h2hTot:h2hTotB,
     p1name:document.getElementById('search-p1').value.trim()||'Giocatore 1',
     p2name:document.getElementById('search-p2').value.trim()||'Giocatore 2',
   });
