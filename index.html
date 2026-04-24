@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>TennisAI — Analisi Match</title>
+<title>StrikeOdds — Analisi Match Tennis</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%231a1a2e'/><polygon points='19,4 11,17 16,17 13,28 22,14 17,14' fill='%23f5c518'/></svg>">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -24,7 +25,7 @@
 html,body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;min-height:100vh;}
 body{padding-bottom:60px;}
 nav{height:54px;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 20px;position:sticky;top:0;z-index:100;}
-.logo{display:flex;align-items:center;gap:9px;font-size:16px;font-weight:700;}
+.logo{display:flex;align-items:center;gap:9px;font-size:17px;font-weight:800;letter-spacing:-0.3px;}
 .logo-box{width:30px;height:30px;border-radius:7px;background:linear-gradient(135deg,#00d97e,#00b8d4);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#000;}
 .nav-links{display:flex;gap:2px;}
 .nav-a{padding:5px 13px;border-radius:6px;font-size:13px;color:var(--muted);cursor:pointer;transition:all .15s;}
@@ -130,7 +131,13 @@ select option{background:var(--card2);}
 </head>
 <body>
 <nav>
-  <div class="logo"><div class="logo-box">T</div>TennisAI</div>
+  <div class="logo">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" style="border-radius:7px;">
+      <rect width="32" height="32" fill="#1a1a2e"/>
+      <polygon points="19,4 11,17 16,17 13,28 22,14 17,14" fill="#f5c518" stroke="#f5c518" stroke-width="0.5" stroke-linejoin="round"/>
+    </svg>
+    StrikeOdds
+  </div>
   <div class="nav-links"><div class="nav-a on">Analisi</div><div class="nav-a">Storico</div></div>
   <div class="ai-tag">⚡ AI POWERED</div>
 </nav>
