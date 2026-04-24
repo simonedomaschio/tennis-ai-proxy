@@ -271,42 +271,6 @@ select option{background:var(--card2);}
     </div>
 
     <div class="card an d2">
-      <div class="sec-title">📈 Forma Recente & H2H</div>
-      <div class="g2" style="margin-bottom:12px;">
-        <div class="f">
-          <label>Forma P1 — Vinte</label>
-          <input type="number" id="p1fw" placeholder="4" min="0" max="20" step="1">
-        </div>
-        <div class="f">
-          <label>Forma P1 — Perse</label>
-          <input type="number" id="p1fl" placeholder="1" min="0" max="20" step="1">
-        </div>
-      </div>
-      <div class="g2" style="margin-bottom:12px;">
-        <div class="f">
-          <label>Forma P2 — Vinte</label>
-          <input type="number" id="p2fw" placeholder="2" min="0" max="20" step="1">
-        </div>
-        <div class="f">
-          <label>Forma P2 — Perse</label>
-          <input type="number" id="p2fl" placeholder="3" min="0" max="20" step="1">
-        </div>
-      </div>
-      <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">HEAD TO HEAD</div>
-      <div class="g2">
-        <div class="f">
-          <label>Vittorie P1</label>
-          <input type="number" id="h2h1" placeholder="3" min="0" step="1">
-        </div>
-        <div class="f">
-          <label>Vittorie P2</label>
-          <input type="number" id="h2h2" placeholder="2" min="0" step="1">
-        </div>
-      </div>
-      <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:10px;">Lascia vuoto se non disponibile — non influenza il calcolo.</div>
-    </div>
-
-    <div class="card an d2">
       <div class="sec-title">💰 Quote Bookmaker</div>
       <div class="g2" style="margin-bottom:12px;">
         <div class="f"><label>Quota P1 vince</label><input type="number" id="odd1" placeholder="2.10" step="0.01"></div>
@@ -321,71 +285,6 @@ select option{background:var(--card2);}
       </div>
     </div>
 
-    <div class="card an d2">
-      <div class="sec-title">📈 Forma Recente & H2H</div>
-      <div class="g2" style="margin-bottom:12px;">
-        <div>
-          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">FORMA RECENTE P1</div>
-          <div style="display:flex;gap:8px;">
-            <div class="f" style="flex:1;"><label>Vittorie</label><input type="number" id="p1fw" placeholder="4" min="0" max="20" step="1"></div>
-            <div class="f" style="flex:1;"><label>Sconfitte</label><input type="number" id="p1fl" placeholder="1" min="0" max="20" step="1"></div>
-          </div>
-        </div>
-        <div>
-          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">FORMA RECENTE P2</div>
-          <div style="display:flex;gap:8px;">
-            <div class="f" style="flex:1;"><label>Vittorie</label><input type="number" id="p2fw" placeholder="2" min="0" max="20" step="1"></div>
-            <div class="f" style="flex:1;"><label>Sconfitte</label><input type="number" id="p2fl" placeholder="3" min="0" max="20" step="1"></div>
-          </div>
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">HEAD TO HEAD</div>
-      <div class="g2">
-        <div class="f"><label>Vittorie P1 vs P2</label><input type="number" id="h2h1" placeholder="3" min="0" max="50" step="1"></div>
-        <div class="f"><label>Vittorie P2 vs P1</label><input type="number" id="h2h2" placeholder="2" min="0" max="50" step="1"></div>
-      </div>
-      <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:8px;">Lascia vuoto se non disponibile — verrà ignorato nel calcolo.</div>
-    </div>
-
-    <button class="run" onclick="runAnalysis()">⚡ Analizza Match</button>
-  </div>
-
-  <!-- RESULTS -->
-  <div id="panel-results" style="display:none;">
-    <div class="hero an">
-      <div class="ai-pow">⚡ AI POWERED</div>
-      <div class="h-players">
-        <div class="h-player"><div class="h-av p1" id="r-av1">P1</div><div class="h-name" id="r-n1">Giocatore 1</div></div>
-        <div><div class="h-vs">VS</div></div>
-        <div class="h-player"><div class="h-av p2" id="r-av2">P2</div><div class="h-name" id="r-n2">Giocatore 2</div></div>
-      </div>
-      <div class="h-meta" id="h-meta"></div>
-    </div>
-
-    <!-- WIN PROBABILITY -->
-    <div class="card an d1">
-      <div class="sec-title">📈 Previsione AI</div>
-      <div class="win-meter">
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
-          <span style="font-size:13px;color:var(--p1);font-weight:600;" id="r-n1b">P1</span>
-          <span style="font-size:13px;color:var(--p2);font-weight:600;" id="r-n2b">P2</span>
-        </div>
-        <div class="win-track">
-          <div class="win-fill1" id="wf1" style="width:50%"></div>
-          <div class="win-fill2" id="wf2" style="width:50%"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-top:6px;">
-          <span class="win-pct" style="color:var(--p1);" id="wp1">50%</span>
-          <span class="win-pct" style="color:var(--p2);" id="wp2">50%</span>
-        </div>
-      </div>
-      <div class="consiglio" style="margin-top:14px;">
-        <div class="cons-lbl">⚡ L'AI Consiglia</div>
-        <div class="cons-txt" id="cons-txt">—</div>
-      </div>
-    </div>
-
-    <!-- CONFRONTO STATISTICHE -->
     <div class="card an d2">
       <div class="sec-title">📊 Confronto Statistiche</div>
       <div id="stat-comp-grid"></div>
