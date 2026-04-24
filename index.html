@@ -210,6 +210,43 @@ select option{background:var(--card2);}
     </div>
 
     <div class="card an d1">
+      <div class="sec-title">📊 Forma Recente &amp; H2H</div>
+      <div style="font-size:11px;color:var(--muted2);font-family:var(--mono);margin-bottom:12px;">Inserisci le partite recenti (es. ultime 5-10) e il testa a testa storico.</div>
+      <div class="g3" style="margin-bottom:12px;">
+        <div class="f">
+          <label id="forma-lbl-p1">P1 — Vinte recenti</label>
+          <input type="number" id="p1formw" placeholder="4" min="0" step="1">
+        </div>
+        <div class="f">
+          <label id="forma-lbl-p2">P2 — Vinte recenti</label>
+          <input type="number" id="p2formw" placeholder="2" min="0" step="1">
+        </div>
+        <div class="f">
+          <label>Partite totali considerate</label>
+          <input type="number" id="formtot" placeholder="5" min="1" step="1" value="5">
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">HEAD TO HEAD (storico totale)</div>
+      <div class="g3">
+        <div class="f">
+          <label id="h2h-lbl-p1">Vittorie P1</label>
+          <input type="number" id="h2hp1" placeholder="3" min="0" step="1">
+        </div>
+        <div class="f">
+          <label id="h2h-lbl-p2">Vittorie P2</label>
+          <input type="number" id="h2hp2" placeholder="2" min="0" step="1">
+        </div>
+        <div class="f">
+          <label>Sulla stessa superficie</label>
+          <select id="h2hsurf">
+            <option value="all">Tutti i campi</option>
+            <option value="surface">Solo questa superficie</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="card an d1">
       <div class="sec-title">🎾 Statistiche di Gioco</div>
       <table class="stat-tbl">
         <thead><tr>
@@ -234,6 +271,42 @@ select option{background:var(--card2);}
     </div>
 
     <div class="card an d2">
+      <div class="sec-title">📈 Forma Recente & H2H</div>
+      <div class="g2" style="margin-bottom:12px;">
+        <div class="f">
+          <label>Forma P1 — Vinte</label>
+          <input type="number" id="p1fw" placeholder="4" min="0" max="20" step="1">
+        </div>
+        <div class="f">
+          <label>Forma P1 — Perse</label>
+          <input type="number" id="p1fl" placeholder="1" min="0" max="20" step="1">
+        </div>
+      </div>
+      <div class="g2" style="margin-bottom:12px;">
+        <div class="f">
+          <label>Forma P2 — Vinte</label>
+          <input type="number" id="p2fw" placeholder="2" min="0" max="20" step="1">
+        </div>
+        <div class="f">
+          <label>Forma P2 — Perse</label>
+          <input type="number" id="p2fl" placeholder="3" min="0" max="20" step="1">
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">HEAD TO HEAD</div>
+      <div class="g2">
+        <div class="f">
+          <label>Vittorie P1</label>
+          <input type="number" id="h2h1" placeholder="3" min="0" step="1">
+        </div>
+        <div class="f">
+          <label>Vittorie P2</label>
+          <input type="number" id="h2h2" placeholder="2" min="0" step="1">
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:10px;">Lascia vuoto se non disponibile — non influenza il calcolo.</div>
+    </div>
+
+    <div class="card an d2">
       <div class="sec-title">💰 Quote Bookmaker</div>
       <div class="g2" style="margin-bottom:12px;">
         <div class="f"><label>Quota P1 vince</label><input type="number" id="odd1" placeholder="2.10" step="0.01"></div>
@@ -246,6 +319,32 @@ select option{background:var(--card2);}
         <div class="f"><label>O/21.5</label><input type="number" id="ou215" placeholder="1.85" step="0.01"></div>
         <div class="f"><label>O/22.5</label><input type="number" id="ou225" placeholder="1.85" step="0.01"></div>
       </div>
+    </div>
+
+    <div class="card an d2">
+      <div class="sec-title">📈 Forma Recente & H2H</div>
+      <div class="g2" style="margin-bottom:12px;">
+        <div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">FORMA RECENTE P1</div>
+          <div style="display:flex;gap:8px;">
+            <div class="f" style="flex:1;"><label>Vittorie</label><input type="number" id="p1fw" placeholder="4" min="0" max="20" step="1"></div>
+            <div class="f" style="flex:1;"><label>Sconfitte</label><input type="number" id="p1fl" placeholder="1" min="0" max="20" step="1"></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">FORMA RECENTE P2</div>
+          <div style="display:flex;gap:8px;">
+            <div class="f" style="flex:1;"><label>Vittorie</label><input type="number" id="p2fw" placeholder="2" min="0" max="20" step="1"></div>
+            <div class="f" style="flex:1;"><label>Sconfitte</label><input type="number" id="p2fl" placeholder="3" min="0" max="20" step="1"></div>
+          </div>
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:8px;">HEAD TO HEAD</div>
+      <div class="g2">
+        <div class="f"><label>Vittorie P1 vs P2</label><input type="number" id="h2h1" placeholder="3" min="0" max="50" step="1"></div>
+        <div class="f"><label>Vittorie P2 vs P1</label><input type="number" id="h2h2" placeholder="2" min="0" max="50" step="1"></div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);font-family:var(--mono);margin-top:8px;">Lascia vuoto se non disponibile — verrà ignorato nel calcolo.</div>
     </div>
 
     <button class="run" onclick="runAnalysis()">⚡ Analizza Match</button>
@@ -358,11 +457,22 @@ document.addEventListener('DOMContentLoaded', function() {
 function updatePlayerLabels() {
   var p1 = document.getElementById('search-p1').value.trim() || 'Giocatore 1';
   var p2 = document.getElementById('search-p2').value.trim() || 'Giocatore 2';
+  var p1s = p1.split(' ')[0] || 'P1';
+  var p2s = p2.split(' ')[0] || 'P2';
   // Update stat table headers
   var th1 = document.getElementById('th-p1');
   var th2 = document.getElementById('th-p2');
-  if (th1) th1.textContent = p1.split(' ')[0] || 'P1';
-  if (th2) th2.textContent = p2.split(' ')[0] || 'P2';
+  if (th1) th1.textContent = p1s;
+  if (th2) th2.textContent = p2s;
+  // Update forma/h2h labels
+  var fl1 = document.getElementById('forma-lbl-p1');
+  var fl2 = document.getElementById('forma-lbl-p2');
+  var hl1 = document.getElementById('h2h-lbl-p1');
+  var hl2 = document.getElementById('h2h-lbl-p2');
+  if (fl1) fl1.textContent = p1s + ' — Vinte recenti';
+  if (fl2) fl2.textContent = p2s + ' — Vinte recenti';
+  if (hl1) hl1.textContent = 'Vittorie ' + p1s;
+  if (hl2) hl2.textContent = 'Vittorie ' + p2s;
 }
 
 async function searchStats(){
@@ -486,6 +596,18 @@ function estimateGames(p1,p2,winP1){
 function runAnalysis(){
   const surfVal=document.getElementById('surface').value;
   const bo5=document.getElementById('format').value==='bo5';
+  // Forma recente
+  const formTot = Math.max(1, gn('formtot', 5));
+  const p1formw = gn('p1formw', -1);
+  const p2formw = gn('p2formw', -1);
+  const p1formPct = p1formw >= 0 ? p1formw / formTot : -1;
+  const p2formPct = p2formw >= 0 ? p2formw / formTot : -1;
+  // H2H
+  const h2hp1 = gn('h2hp1', -1);
+  const h2hp2 = gn('h2hp2', -1);
+  const h2hTot = h2hp1 >= 0 && h2hp2 >= 0 ? h2hp1 + h2hp2 : 0;
+  const h2hPct = h2hTot > 0 ? h2hp1 / h2hTot : -1;
+
   const p1={
     hold:gn('p1hold',77),first:gn('p1first',59),w1st:gn('p1w1st',68),
     w2nd:gn('p1w2nd',51),wfs:gn('p1wfs',55),ret:gn('p1ret',20),
@@ -496,13 +618,39 @@ function runAnalysis(){
     w2nd:gn('p2w2nd',55),wfs:gn('p2wfs',60),ret:gn('p2ret',23),
     bps:gn('p2bps',61),bpw:gn('p2bpw',37),svc:gn('p2svc',63),fb:gn('p2fb',40)
   };
+
+  // Forma recente
+  const p1fw=gn('p1fw',-1), p1fl=gn('p1fl',-1);
+  const p2fw=gn('p2fw',-1), p2fl=gn('p2fl',-1);
+  const p1hasForma = p1fw>=0 && p1fl>=0 && (p1fw+p1fl)>0;
+  const p2hasForma = p2fw>=0 && p2fl>=0 && (p2fw+p2fl)>0;
+  const p1formaPct = p1hasForma ? p1fw/(p1fw+p1fl) : 0.5;
+  const p2formaPct = p2hasForma ? p2fw/(p2fw+p2fl) : 0.5;
+  // H2H
+
   const odd1=gn('odd1',0),odd2=gn('odd2',0);
   const ouOdds=[gn('ou195',0),gn('ou205',0),gn('ou215',0),gn('ou225',0)];
   const ouLines=[19.5,20.5,21.5,22.5];
 
   const ds1=calcDominance(p1,surfVal);
   const ds2=calcDominance(p2,surfVal);
-  const wP1=winProb(ds1,ds2);
+  let wP1base=winProb(ds1,ds2);
+
+  // Correzione forma recente (peso 15% sul risultato finale)
+  let formaCorr=0;
+  if(p1hasForma||p2hasForma){
+    const formaDiff = p1formaPct - p2formaPct; // -1 a +1
+    formaCorr = formaDiff * 0.15; // max ±15%
+  }
+
+  // Correzione H2H (peso 10% sul risultato finale)
+  let h2hCorr=0;
+  if(hasH2H){
+    const h2hDiff = h2hPct - 0.5; // -0.5 a +0.5
+    h2hCorr = h2hDiff * 0.10; // max ±5%
+  }
+
+  const wP1=Math.min(0.97,Math.max(0.03, wP1base + formaCorr + h2hCorr));
   const wP2=1-wP1;
   const estGames=estimateGames(p1,p2,wP1);
 
@@ -510,8 +658,21 @@ function runAnalysis(){
   const ouProbs=ouLines.map(l=>ouProb(l,estGames));
   const wfsAdj=(p1.wfs/100)/((p1.wfs+p2.wfs)/100);
 
+  // Applica correzione forma e H2H alla win probability
+  let wP1adj = wP1, wP2adj = wP2;
+  if (p1formPct >= 0 && p2formPct >= 0) {
+    const formAdj = (p1formPct - p2formPct) * 0.15;
+    wP1adj = Math.min(0.95, Math.max(0.05, wP1 + formAdj));
+    wP2adj = 1 - wP1adj;
+  }
+  if (h2hTot >= 3 && h2hPct >= 0) {
+    const h2hAdj = (h2hPct - 0.5) * 0.10;
+    wP1adj = Math.min(0.95, Math.max(0.05, wP1adj + h2hAdj));
+    wP2adj = 1 - wP1adj;
+  }
   renderResults({
-    p1,p2,wP1,wP2,ds1,ds2,estGames,ouProbs,ouLines,ouOdds,odd1,odd2,surfVal,bo5,wfsAdj,
+    p1,p2,wP1:wP1adj,wP2:wP2adj,ds1,ds2,estGames,ouProbs,ouLines,ouOdds,odd1,odd2,surfVal,bo5,wfsAdj,
+    p1formw,p2formw,formTot,h2hp1,h2hp2,h2hTot,h2hPct,
     p1name:document.getElementById('search-p1').value.trim()||'Giocatore 1',
     p2name:document.getElementById('search-p2').value.trim()||'Giocatore 2',
   });
@@ -524,6 +685,8 @@ function renderResults(r){
   if (saveBtn) saveBtn.style.display = 'flex';
   const sm={hard:'🏟 Cemento',clay:'🟫 Terra',grass:'🌿 Erba',indoor:'🏢 Indoor'};
   const fav=r.wP1>=r.wP2?'P1':'P2';
+  r.p1formPct = r.p1formw >= 0 ? r.p1formw / Math.max(1, r.formTot) : -1;
+  r.p2formPct = r.p2formw >= 0 ? r.p2formw / Math.max(1, r.formTot) : -1;
   const favName=r.wP1>=r.wP2?r.p1name:r.p2name;
   const favW=Math.max(r.wP1,r.wP2);
   const gap=Math.abs(r.wP1-r.wP2);
@@ -548,10 +711,82 @@ function renderResults(r){
   document.getElementById('wp1').textContent=p1d(r.wP1);
   document.getElementById('wp2').textContent=p1d(r.wP2);
 
-  const consTxt=gap>0.2?`${favName} ha un vantaggio netto basato sulle statistiche reali. Il divario è significativo e consistente su più parametri chiave.`
+  let consTxt=gap>0.2?`${favName} ha un vantaggio netto basato sulle statistiche reali. Il divario è significativo e consistente su più parametri chiave.`
     :gap>0.1?`${favName} parte leggermente favorito. Il vantaggio statistico è reale ma il match è aperto.`
     :`Le statistiche indicano un match molto equilibrato. Piccole variazioni nella forma del giorno possono essere decisive.`;
+  // Aggiungi info forma e H2H
+  const extras=[];
+  if(r.p1hasForma||r.p2hasForma){
+    const f1=r.p1hasForma?`${r.p1name.split(' ')[0]}: ${r.p1fw}V-${r.p1fl}S`:'';
+    const f2=r.p2hasForma?`${r.p2name.split(' ')[0]}: ${r.p2fw}V-${r.p2fl}S`:'';
+    extras.push('Forma recente — '+[f1,f2].filter(Boolean).join(', '));
+  }
+  if(r.hasH2H){
+    extras.push(`H2H: ${r.p1name.split(' ')[0]} ${r.h2h1}-${r.h2h2} ${r.p2name.split(' ')[0]}`);
+  }
+  if(extras.length) consTxt += ' · '+extras.join(' · ');
   document.getElementById('cons-txt').textContent=consTxt;
+
+  // Mostra forma e H2H se disponibili
+  var extraInfo = '';
+  if(r.p1formw>=0 && r.p2formw>=0){
+    var f1 = r.p1formw+'V-'+r.p1fl+'S';
+    var f2 = r.p2formw+'V-'+r.p2fl+'S';
+    extraInfo += '<div style="display:flex;gap:10px;margin-top:8px;font-size:11px;font-family:var(--mono);">';
+    extraInfo += '<span style="color:var(--p1);">⚡ '+r.p1name.split(' ')[0]+': '+f1+'</span>';
+    extraInfo += '<span style="color:var(--muted);">|</span>';
+    extraInfo += '<span style="color:var(--p2);">⚡ '+r.p2name.split(' ')[0]+': '+f2+'</span>';
+    extraInfo += '</div>';
+  }
+  if(r.h2hTot>=1){
+    extraInfo += '<div style="font-size:11px;font-family:var(--mono);margin-top:4px;color:var(--muted2);">';
+    extraInfo += '🔄 H2H: <span style="color:var(--p1);font-weight:600;">'+r.h2hp1+'</span> - <span style="color:var(--p2);font-weight:600;">'+r.h2hp2+'</span>';
+    if(r.h2hTot<3) extraInfo += ' <span style="color:var(--muted);font-size:10px;">(campione piccolo)</span>';
+    extraInfo += '</div>';
+  }
+  var consEl = document.querySelector('.consiglio');
+  if(consEl){
+    var existingExtra = consEl.querySelector('.extra-info');
+    if(existingExtra) existingExtra.remove();
+    if(extraInfo){
+      var div = document.createElement('div');
+      div.className = 'extra-info';
+      div.innerHTML = extraInfo;
+      consEl.appendChild(div);
+    }
+  }
+
+  // Forma & H2H info box
+  var formaBox = document.getElementById('forma-h2h-box');
+  if (!formaBox) {
+    var consEl = document.querySelector('.consiglio');
+    if (consEl) {
+      formaBox = document.createElement('div');
+      formaBox.id = 'forma-h2h-box';
+      formaBox.style.cssText = 'margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;';
+      consEl.parentNode.insertBefore(formaBox, consEl.nextSibling);
+    }
+  }
+  if (formaBox) {
+    var chips = '';
+    if (r.p1formw >= 0 && r.p2formw >= 0) {
+      var p1fn = r.p1name.split(' ')[0];
+      var p2fn = r.p2name.split(' ')[0];
+      chips += '<div style="background:var(--card2);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;font-size:11px;font-family:var(--mono);">'
+        + '📈 Forma: <span style="color:var(--p1);">' + p1fn + ' ' + r.p1formw + 'V/' + (r.formTot-r.p1formw) + 'S</span>'
+        + ' vs <span style="color:var(--p2);">' + p2fn + ' ' + r.p2formw + 'V/' + (r.formTot-r.p2formw) + 'S</span>'
+        + (r.p1formPct !== r.p2formPct ? ' <span style="color:var(--amber);">(±' + (Math.abs(r.p1formPct-r.p2formPct)*15).toFixed(1) + '% sul pronostico)</span>' : '')
+        + '</div>';
+    }
+    if (r.h2hTot >= 1) {
+      var h2hSuffix = r.h2hTot >= 3 ? ' <span style="color:var(--amber);">(±' + (Math.abs(r.h2hPct-0.5)*10).toFixed(1) + '% sul pronostico)</span>' : ' <span style="color:var(--muted);">(troppo pochi per correzione)</span>';
+      chips += '<div style="background:var(--card2);border:1px solid var(--border2);border-radius:6px;padding:6px 12px;font-size:11px;font-family:var(--mono);">'
+        + '⚔️ H2H: <span style="color:var(--p1);">' + r.p1name.split(' ')[0] + ' ' + r.h2hp1 + '</span>'
+        + ' - <span style="color:var(--p2);">' + r.p2name.split(' ')[0] + ' ' + r.h2hp2 + '</span>'
+        + h2hSuffix + '</div>';
+    }
+    formaBox.innerHTML = chips;
+  }
 
   const stats=[
     {id:'hold',label:'Tenuta servizio %',higher:'better'},
@@ -630,6 +865,7 @@ function renderResults(r){
     <div class="rep-div"></div>
     <div class="rep-h">I Parametri Chiave</div>
     <div class="rep-p">Il vantaggio di <strong>${favName}</strong> si basa su <strong>${keyAdv||'un insieme equilibrato di parametri'}</strong>. ${r.p1.ret>r.p2.ret?`${r.p1name} è più efficace in risposta (${r.p1.ret.toFixed(1)}% vs ${r.p2.ret.toFixed(1)}%).`:`${r.p2name} strappa il break più spesso (${r.p2.ret.toFixed(1)}% vs ${r.p1.ret.toFixed(1)}%).`}</div>
+    ${(r.p1hasForma||r.p2hasForma||r.hasH2H)?`<div class="rep-div"></div><div class="rep-h">Forma & H2H</div><div class="rep-p">${r.p1hasForma?`<strong>${r.p1name.split(' ')[0]}</strong> nelle ultime partite: <strong>${r.p1fw}V-${r.p1fl}S</strong> (${Math.round(r.p1fw/(r.p1fw+r.p1fl)*100)}%). `:''}${r.p2hasForma?`<strong>${r.p2name.split(' ')[0]}</strong>: <strong>${r.p2fw}V-${r.p2fl}S</strong> (${Math.round(r.p2fw/(r.p2fw+r.p2fl)*100)}%). `:''}${r.hasH2H?`H2H: <strong>${r.p1name.split(' ')[0]} ${r.h2h1}-${r.h2h2} ${r.p2name.split(' ')[0]}</strong> — ${r.h2h1>r.h2h2?r.p1name.split(' ')[0]+' storicamente avvantaggiato':r.h2h2>r.h2h1?r.p2name.split(' ')[0]+' storicamente avvantaggiato':'H2H in parità'}.`:''}</div>`:''} 
     <div class="rep-div"></div>
     <div class="rep-h">La Superficie</div>
     <div class="rep-p">${sT[r.surfVal]||sT.clay}</div>
