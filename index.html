@@ -198,6 +198,10 @@ select option{background:var(--card2);}
           <tr><td><input type="number" id="p1w2nd" placeholder="51.0" step="0.1"></td><td class="stat-nm">Punti su 2° serv %</td><td><input type="number" id="p2w2nd" placeholder="55.0" step="0.1"></td></tr>
           <tr><td><input type="number" id="p1wfs" placeholder="55.0" step="0.1"></td><td class="stat-nm">Win first set %</td><td><input type="number" id="p2wfs" placeholder="60.0" step="0.1"></td></tr>
           <tr><td><input type="number" id="p1ret" placeholder="20.0" step="0.1"></td><td class="stat-nm">Return game vinti %</td><td><input type="number" id="p2ret" placeholder="23.0" step="0.1"></td></tr>
+          <tr><td><input type="number" id="p1bps" placeholder="64.0" step="0.1"></td><td class="stat-nm">BP Save %</td><td><input type="number" id="p2bps" placeholder="61.0" step="0.1"></td></tr>
+          <tr><td><input type="number" id="p1bpw" placeholder="40.0" step="0.1"></td><td class="stat-nm">Break Point W%</td><td><input type="number" id="p2bpw" placeholder="37.0" step="0.1"></td></tr>
+          <tr><td><input type="number" id="p1svc" placeholder="65.0" step="0.1"></td><td class="stat-nm">Service Pts W%</td><td><input type="number" id="p2svc" placeholder="63.0" step="0.1"></td></tr>
+          <tr><td><input type="number" id="p1fb" placeholder="50.0" step="0.1"></td><td class="stat-nm">First Break %</td><td><input type="number" id="p2fb" placeholder="40.0" step="0.1"></td></tr>
 
         </tbody>
       </table>
@@ -365,6 +369,7 @@ async function searchStats(){
       const s=data.p2.stats;
       sf('p2hold',s.hold);sf('p2first',s.first);sf('p2w1st',s.w1st);
       sf('p2w2nd',s.w2nd);sf('p2wfs',s.wfs);sf('p2ret',s.ret);
+      sf('p2bps',s.bps);sf('p2bpw',s.bpw);sf('p2svc',s.svc);sf('p2fb',s.fb);
       
       if(data.p2.source && !sources.includes(data.p2.source)) sources.push(data.p2.source);
       loaded++;
@@ -393,12 +398,12 @@ async function searchStats(){
 
 // ── ANALISI BASATA SU DATI REALI ────────────────────────────────────────────
 const SURFACE_WEIGHTS = {
-  clay:   {hold:1.5, first:0.8, w1st:1.3, w2nd:1.6, ret:2.0, wfs:1.2},
-  hard:   {hold:1.8, first:1.0, w1st:1.5, w2nd:1.4, ret:1.6, wfs:1.1},
-  grass:  {hold:2.2, first:1.2, w1st:1.8, w2nd:1.2, ret:1.3, wfs:1.0},
-  indoor: {hold:2.0, first:1.1, w1st:1.6, w2nd:1.3, ret:1.4, wfs:1.0},
+  clay:   {hold:1.2, first:0.6, w1st:1.0, w2nd:1.2, ret:1.5, wfs:1.0, bps:1.8, bpw:2.0, svc:1.3, fb:1.6},
+  hard:   {hold:1.4, first:0.8, w1st:1.2, w2nd:1.1, ret:1.2, wfs:0.9, bps:1.5, bpw:1.8, svc:1.4, fb:1.4},
+  grass:  {hold:1.8, first:1.0, w1st:1.5, w2nd:1.0, ret:1.0, wfs:0.8, bps:1.2, bpw:1.5, svc:1.6, fb:1.2},
+  indoor: {hold:1.6, first:0.9, w1st:1.3, w2nd:1.0, ret:1.1, wfs:0.9, bps:1.4, bpw:1.6, svc:1.5, fb:1.3},
 };
-const ATP_AVG = {hold:80, first:60, w1st:71, w2nd:52, ret:22, wfs:58};
+const ATP_AVG = {hold:80, first:60, w1st:71, w2nd:52, ret:22, wfs:58, bps:63, bpw:38, svc:64, fb:45};
 
 function calcDominance(stats, surface){
   const w = SURFACE_WEIGHTS[surface] || SURFACE_WEIGHTS.clay;
@@ -409,7 +414,10 @@ function calcDominance(stats, surface){
   score += w.w2nd  * (stats.w2nd  - ATP_AVG.w2nd)  / 10;
   score += w.ret   * (stats.ret   - ATP_AVG.ret)   / 5;
   score += w.wfs   * (stats.wfs   - ATP_AVG.wfs)   / 10;
-
+  score += w.bps   * (stats.bps   - ATP_AVG.bps)   / 10;
+  score += w.bpw   * (stats.bpw   - ATP_AVG.bpw)   / 10;
+  score += w.svc   * (stats.svc   - ATP_AVG.svc)   / 10;
+  score += w.fb    * (stats.fb    - ATP_AVG.fb)     / 10;
   return score;
 }
 
@@ -436,11 +444,13 @@ function runAnalysis(){
   const bo5=document.getElementById('format').value==='bo5';
   const p1={
     hold:gn('p1hold',77),first:gn('p1first',59),w1st:gn('p1w1st',68),
-    w2nd:gn('p1w2nd',51),wfs:gn('p1wfs',55),ret:gn('p1ret',20)
+    w2nd:gn('p1w2nd',51),wfs:gn('p1wfs',55),ret:gn('p1ret',20),
+    bps:gn('p1bps',64),bpw:gn('p1bpw',40),svc:gn('p1svc',65),fb:gn('p1fb',50)
   };
   const p2={
     hold:gn('p2hold',80),first:gn('p2first',63),w1st:gn('p2w1st',72),
-    w2nd:gn('p2w2nd',55),wfs:gn('p2wfs',60),ret:gn('p2ret',23)
+    w2nd:gn('p2w2nd',55),wfs:gn('p2wfs',60),ret:gn('p2ret',23),
+    bps:gn('p2bps',61),bpw:gn('p2bpw',37),svc:gn('p2svc',63),fb:gn('p2fb',40)
   };
   const odd1=gn('odd1',0),odd2=gn('odd2',0);
   const ouOdds=[gn('ou195',0),gn('ou205',0),gn('ou215',0),gn('ou225',0)];
